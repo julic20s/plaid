@@ -1,0 +1,28 @@
+---
+IndentWidth: 2
+IndentRequiresClause: false
+AccessModifierOffset: -2
+CompactNamespaces: false
+AlignAfterOpenBracket: BlockIndent
+AllowAllArgumentsOnNextLine: true
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortEnumsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: true
+AlwaysBreakTemplateDeclarations: Yes
+BitFieldColonSpacing: After
+EmptyLineBeforeAccessModifier: Leave
+EmptyLineAfterAccessModifier: Leave
+UseTab: Never
+IndentCaseLabels: true
+LambdaBodyIndentation: Signature
+MaxEmptyLinesToKeep: 1
+ColumnLimit: 0
+PackConstructorInitializers: BinPack
+RequiresClausePosition: SingleLine
+---
+Language: Cpp
+BreakBeforeBraces: Attach

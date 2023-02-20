@@ -1,0 +1,5 @@
+# Local config and scripts
+/.vscode
+/make.bat
+
+/.build
