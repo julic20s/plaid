@@ -14,20 +14,28 @@
 
 namespace plaid {
 
-/// 定义一个着色器属性
-struct shader_attribute_description {
+/// 定义一个着色器输入/输出变量的规格
+struct shader_stage_variable_description {
+  /// 变量插值函数
+  using interpolation_function = void(
+      const std::byte *(&src)[3],
+      const float (&weight)[3],
+      std::byte *dst
+  );
+
   /// 属性的编号
   std::uint8_t location;
   /// 属性的字节大小
   std::uint32_t size;
+  interpolation_function *interpolation;
 };
 
-/// 定义一个着色器内所有的属性
-struct shader_attributes_meta {
+/// 定义一个着色器内所有变量的规格
+struct shader_variables_meta {
   std::uint16_t inputs_count;
   std::uint16_t outputs_count;
-  shader_attribute_description *inputs;
-  shader_attribute_description *outputs;
+  shader_stage_variable_description *inputs;
+  shader_stage_variable_description *outputs;
 };
 
 /// 保存着色器信息，管道对象可以据此为属性分配内存
@@ -41,7 +49,7 @@ struct shader_module {
 
   virtual ~shader_module() {}
 
-  shader_attributes_meta members_meta;
+  shader_variables_meta members_meta;
   entry_function *entry;
 };
 
@@ -115,7 +123,7 @@ public:
 
 private:
   /// 记录堆内存指针
-  shader_attribute_description *attributes_description_memory;
+  shader_stage_variable_description *attributes_description_memory;
 };
 
 template <class Ty, void (Ty::*Entry)(void)>
@@ -129,14 +137,14 @@ private:
       if (!construct_with_module(shader, p, p, args...)) {
         /// 再增加一个参数就不能构造了，说明递归到这一层时参数已经能够填满所有的成员
         new (shader) Ty{{}, args...};
-        
+
         auto count = p.members_meta.inputs_count + p.members_meta.outputs_count;
         if (count == 0) {
           p.attributes_description_memory = nullptr;
         }
 
         // 为着色器属性描述分配内存
-        p.attributes_description_memory = new shader_attribute_description[count];
+        p.attributes_description_memory = new shader_stage_variable_description[count];
 
         // 拷贝栈上数组的数据到堆内存
         auto dst = p.attributes_description_memory;
@@ -161,8 +169,8 @@ public:
     m.entry = shader::entry<Ty, Entry>;
     // 注意这些数组并不在堆内存上
     // 我们会在 [construct_with_module] 中将其替换
-    shader_attribute_description inputs[256];
-    shader_attribute_description outputs[256];
+    shader_stage_variable_description inputs[256];
+    shader_stage_variable_description outputs[256];
     m.members_meta = {
         .inputs_count = 0,
         .outputs_count = 0,
@@ -193,13 +201,40 @@ struct shader::location {
   };
 
   template <class Ty>
-  struct out {
+  class out {
+  private:
+    template <class MTy>
+    static inline void interpolation(
+      const std::byte *(&src)[3], const float (&weight)[3], std::byte *dst
+    ) {
+      constexpr auto n = std::extent_v<Ty>;
+      // 如果是数组类型就递归进行插值
+      if constexpr (n >= 2) {
+        using element_t = std::remove_extent_t<Ty>;
+        constexpr auto stride = sizeof(element_t);
+        const std::byte *arr_src[] = {src[0], src[1], src[2]};
+
+        for (std::size_t i = 0; i != n; ++i) {
+          interpolation<element_t>(arr_src, weight, dst);
+          for (auto &p : arr_src) p += stride;
+          dst += stride;
+        }
+      } else {
+        auto &typed = reinterpret_cast<const Ty *(&)[3]>(src);
+        *reinterpret_cast<Ty *>(dst) =
+            *typed[0] * weight[0] +
+            *typed[1] * weight[1] +
+            *typed[2] * weight[2];
+      }
+    }
+
+  public:
     out() = default;
 
     out(dsl_shader_module &m) noexcept {
       // 把自身属性填入数组
       auto &dst = m.members_meta.outputs_count;
-      m.members_meta.outputs[dst++] = {Loc, sizeof(Ty)};
+      m.members_meta.outputs[dst++] = {Loc, sizeof(Ty), interpolation<Ty>};
     }
 
     [[nodiscard]] static inline Ty &
