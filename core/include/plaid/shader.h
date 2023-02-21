@@ -134,15 +134,26 @@ private:
     // 所以当不能再构造的时候，arg的数量就是着色器成员的数量
     constexpr auto constructiable = requires { Ty{{}, args...}; };
     if constexpr (constructiable) {
+      // 再增加一个参数就不能构造了，说明递归到这一层时参数已经能够填满所有的成员
       if (!generate_variables_meta(p, p, args...)) {
-        /// 再增加一个参数就不能构造了，说明递归到这一层时参数已经能够填满所有的成员
+        // 注意这些数组并不在堆内存上
+        shader_stage_variable_description inputs[256];
+        shader_stage_variable_description outputs[256];
+        p.variables_meta = {
+            .inputs_count = 0,
+            .outputs_count = 0,
+            .inputs = inputs,
+            .outputs = outputs,
+        };
         {
           Ty shader{{}, args...};
         }
 
-        auto count = p.variables_meta.inputs_count + p.variables_meta.outputs_count;
+        const auto count = p.variables_meta.inputs_count + p.variables_meta.outputs_count;
         if (count == 0) {
+          p.variables_meta.inputs = p.variables_meta.outputs = nullptr;
           p.attributes_description_memory = nullptr;
+          return true;
         }
 
         // 为着色器属性描述分配内存
@@ -168,18 +179,8 @@ private:
 
 public:
   static void construct(dsl_shader_module &m) {
-    m.entry = shader::entry<Ty, Entry>;
-    // 注意这些数组并不在堆内存上
-    // 我们会在 [construct_with_module] 中将其替换
-    shader_stage_variable_description inputs[256];
-    shader_stage_variable_description outputs[256];
-    m.variables_meta = {
-        .inputs_count = 0,
-        .outputs_count = 0,
-        .inputs = inputs,
-        .outputs = outputs,
-    };
     generate_variables_meta(m);
+    m.entry = shader::entry<Ty, Entry>;
   }
 };
 
