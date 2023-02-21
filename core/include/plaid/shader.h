@@ -49,7 +49,7 @@ struct shader_module {
 
   virtual ~shader_module() {}
 
-  shader_variables_meta members_meta;
+  shader_variables_meta variables_meta;
   entry_function *entry;
 };
 
@@ -110,7 +110,7 @@ public:
   dsl_shader_module(dsl_shader_module &&mov) noexcept {
     attributes_description_memory = mov.attributes_description_memory;
     entry = mov.entry;
-    members_meta = mov.members_meta;
+    variables_meta = mov.variables_meta;
     mov.entry = nullptr;
     mov.attributes_description_memory = nullptr;
   }
@@ -129,16 +129,18 @@ private:
 template <class Ty, void (Ty::*Entry)(void)>
 class dsl_shader_module::constructor<Entry> {
 private:
-  static bool construct_with_module(Ty *shader, dsl_shader_module &p, auto &&...args) {
+  static bool generate_variables_meta(dsl_shader_module &p, auto &&...args) {
     // 不断构造，因为所有的 in/out/uniform 都能接受一个dsl_shader_module & 作为构造参数
     // 所以当不能再构造的时候，arg的数量就是着色器成员的数量
-    constexpr auto constructiable = requires { new (shader) Ty{{}, args...}; };
+    constexpr auto constructiable = requires { Ty{{}, args...}; };
     if constexpr (constructiable) {
-      if (!construct_with_module(shader, p, p, args...)) {
+      if (!generate_variables_meta(p, p, args...)) {
         /// 再增加一个参数就不能构造了，说明递归到这一层时参数已经能够填满所有的成员
-        new (shader) Ty{{}, args...};
+        {
+          Ty shader{{}, args...};
+        }
 
-        auto count = p.members_meta.inputs_count + p.members_meta.outputs_count;
+        auto count = p.variables_meta.inputs_count + p.variables_meta.outputs_count;
         if (count == 0) {
           p.attributes_description_memory = nullptr;
         }
@@ -148,15 +150,15 @@ private:
 
         // 拷贝栈上数组的数据到堆内存
         auto dst = p.attributes_description_memory;
-        auto src = p.members_meta.inputs;
-        p.members_meta.inputs = dst;
-        for (auto ed = dst + p.members_meta.inputs_count; dst != ed; ++dst, ++src) {
+        auto src = p.variables_meta.inputs;
+        p.variables_meta.inputs = dst;
+        for (auto ed = dst + p.variables_meta.inputs_count; dst != ed; ++dst, ++src) {
           *dst = *src;
         }
 
-        src = p.members_meta.outputs;
-        p.members_meta.outputs = dst;
-        for (auto ed = dst + p.members_meta.outputs_count; dst != ed; ++dst, ++src) {
+        src = p.variables_meta.outputs;
+        p.variables_meta.outputs = dst;
+        for (auto ed = dst + p.variables_meta.outputs_count; dst != ed; ++dst, ++src) {
           *dst = *src;
         }
       }
@@ -171,14 +173,13 @@ public:
     // 我们会在 [construct_with_module] 中将其替换
     shader_stage_variable_description inputs[256];
     shader_stage_variable_description outputs[256];
-    m.members_meta = {
+    m.variables_meta = {
         .inputs_count = 0,
         .outputs_count = 0,
         .inputs = inputs,
         .outputs = outputs,
     };
-    Ty shader;
-    construct_with_module(&shader, m);
+    generate_variables_meta(m);
   }
 };
 
@@ -190,8 +191,8 @@ struct shader::location {
 
     in(dsl_shader_module &m) noexcept {
       // 把自身属性填入数组
-      auto &dst = m.members_meta.inputs_count;
-      m.members_meta.inputs[dst++] = {Loc, sizeof(Ty)};
+      auto &dst = m.variables_meta.inputs_count;
+      m.variables_meta.inputs[dst++] = {Loc, sizeof(Ty)};
     }
 
     [[nodiscard]] static inline const Ty &
@@ -205,7 +206,7 @@ struct shader::location {
   private:
     template <class MTy>
     static inline void interpolation(
-      const std::byte *(&src)[3], const float (&weight)[3], std::byte *dst
+        const std::byte *(&src)[3], const float (&weight)[3], std::byte *dst
     ) {
       constexpr auto n = std::extent_v<Ty>;
       // 如果是数组类型就递归进行插值
@@ -233,8 +234,8 @@ struct shader::location {
 
     out(dsl_shader_module &m) noexcept {
       // 把自身属性填入数组
-      auto &dst = m.members_meta.outputs_count;
-      m.members_meta.outputs[dst++] = {Loc, sizeof(Ty), interpolation<Ty>};
+      auto &dst = m.variables_meta.outputs_count;
+      m.variables_meta.outputs[dst++] = {Loc, sizeof(Ty), interpolation<Ty>};
     }
 
     [[nodiscard]] static inline Ty &
