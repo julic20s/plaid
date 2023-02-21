@@ -93,8 +93,8 @@ public:
 
     /// 着色器规格
     struct shader_stages {
-      shader_module *vertex_shader;
-      shader_module *fragment_shader;
+      const shader_module *vertex_shader;
+      const shader_module *fragment_shader;
     };
 
     /// 光栅化参数设置

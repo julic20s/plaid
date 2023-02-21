@@ -192,7 +192,8 @@ struct shader::location {
     in(dsl_shader_module &m) noexcept {
       // 把自身属性填入数组
       auto &dst = m.variables_meta.inputs_count;
-      m.variables_meta.inputs[dst++] = {Loc, sizeof(Ty)};
+      const_cast<shader_stage_variable_description &>(m.variables_meta.inputs[dst++]) =
+          {Loc, sizeof(Ty)};
     }
 
     [[nodiscard]] static inline const Ty &
@@ -235,7 +236,8 @@ struct shader::location {
     out(dsl_shader_module &m) noexcept {
       // 把自身属性填入数组
       auto &dst = m.variables_meta.outputs_count;
-      m.variables_meta.outputs[dst++] = {Loc, sizeof(Ty), interpolation<Ty>};
+      const_cast<shader_stage_variable_description &>(m.variables_meta.outputs[dst++]) =
+          {Loc, sizeof(Ty), interpolation<Ty>};
     }
 
     [[nodiscard]] static inline Ty &

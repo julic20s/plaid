@@ -31,8 +31,8 @@ void initialize_pipeline() {
       },
   };
 
-  auto vert = plaid::dsl_shader_module::load<&triangle::vert::main>();
-  auto frag = plaid::dsl_shader_module::load<&triangle::frag::main>();
+  const auto vert = plaid::dsl_shader_module::load<&triangle::vert::main>();
+  const auto frag = plaid::dsl_shader_module::load<&triangle::frag::main>();
 
   plaid::graphics_pipeline::create_info create_info{
       .vertex_input_state{
