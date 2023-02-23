@@ -11,6 +11,8 @@ class graphics_pipeline_impl {
 public:
   graphics_pipeline_impl(const graphics_pipeline::create_info &);
 
+  ~graphics_pipeline_impl();
+
   /// 绑定顶点缓冲区
   void bind_vertex_buffer(std::uint8_t binding, const std::byte *);
 
@@ -61,6 +63,7 @@ private:
 
   /// 顶点着色器输出变量的堆内存指针
   std::byte *vertex_shader_output_resource;
+  std::align_val_t vertex_shader_output_resource_align;
 
   /// 每个顶点着色器输出变量组的字节数，一共有三组，则
   /// [vertex_shader_output_resource] 指向的缓冲区大小为

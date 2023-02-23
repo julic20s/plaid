@@ -100,8 +100,9 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
     }
 
     // 申请内存
+    vertex_shader_output_resource_align = std::align_val_t(sorted_attrs[vs_output_cnt - 1].align);
     vertex_shader_output_resource = reinterpret_cast<std::byte *>(
-        ::operator new(output_size * 3, std::align_val_t(sorted_attrs[vs_output_cnt - 1].align))
+        ::operator new(output_size * 3, vertex_shader_output_resource_align)
     );
 
     for (auto it = sorted_attrs, ed = sorted_attrs + vs_output_cnt; it != ed; ++it) {
@@ -113,6 +114,10 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
       }
     }
   }
+}
+
+graphics_pipeline_impl::~graphics_pipeline_impl() {
+  ::operator delete(vertex_shader_output_resource, vertex_shader_output_resource_align);
 }
 
 void graphics_pipeline_impl::bind_vertex_buffer(std::uint8_t binding, const std::byte *buf) {
