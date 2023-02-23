@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <cstdint>
 
-#include <functional>
 #include <type_traits>
 
 #ifdef PLAID_SHADER_DSL
