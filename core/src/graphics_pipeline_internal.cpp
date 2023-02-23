@@ -101,7 +101,7 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
 
     // 申请内存
     vertex_shader_output_resource = reinterpret_cast<std::byte *>(
-      ::operator new(output_size * 3, std::align_val_t(sorted_attrs[vs_output_cnt - 1].align))
+        ::operator new(output_size * 3, std::align_val_t(sorted_attrs[vs_output_cnt - 1].align))
     );
 
     for (auto it = sorted_attrs, ed = sorted_attrs + vs_output_cnt; it != ed; ++it) {
