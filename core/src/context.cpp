@@ -26,6 +26,10 @@ void render_pass_state::next_subpass() {
   // TODO
 }
 
+void render_pass_state::bind_vertex_buffer(std::uint8_t binding, const std::byte *buf) {
+  current_graphics_pipeline->bind_vertex_buffer(binding, buf);
+}
+
 void render_pass_state::bind_pipeline(graphics_pipeline &pipeline) {
   current_graphics_pipeline = unwrap<graphics_pipeline_impl>(pipeline.handle());
 }

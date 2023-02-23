@@ -18,6 +18,13 @@ void initialize_render_pass() {
 
 /// 初始化图形管道
 void initialize_pipeline() {
+  constexpr plaid::vertex_input_binding_description bindings[]{
+      {
+          .binding = 0,
+          .input_rate = plaid::vertex_input_rate::vertex,
+          .stride = sizeof(vertex),
+      }};
+
   constexpr plaid::vertex_input_attribute_description attrs[]{
       {
           .location = 0,
@@ -36,7 +43,9 @@ void initialize_pipeline() {
 
   plaid::graphics_pipeline::create_info create_info{
       .vertex_input_state{
+          .bindings_count = 1,
           .attributes_count = 2,
+          .bindings = bindings,
           .attributes = attrs,
       },
       .input_assembly_state{
@@ -57,8 +66,14 @@ void initialize() {
 }
 
 void render() {
+  static const vertex triangle[] = {
+      {{0, -.5}, {1, 0, 0}},
+      {{-.5, .5}, {0, 1, 0}},
+      {{.5f, .5}, {0, 0, 1}},
+  };
   plaid::render_pass_state state(viewer_render_pass);
   state.bind_pipeline(viewer_pipeline);
+  state.bind_vertex_buffer(0, reinterpret_cast<const std::byte *>(triangle));
   state.draw(3, 1, 0, 0);
   state.next_subpass();
 }

@@ -26,6 +26,9 @@ struct shader_stage_variable_description {
   std::uint8_t location;
   /// 属性的字节大小
   std::uint32_t size;
+  /// 属性的字节对齐大小
+  std::uint32_t align;
+  /// 属性插值函数，只对片元着色器输入有效
   interpolation_function *interpolation;
 };
 
@@ -214,7 +217,7 @@ struct shader::location {
       // 把自身属性填入数组
       auto &dst = m.variables_meta.inputs_count;
       const_cast<shader_stage_variable_description &>(m.variables_meta.inputs[dst++]) =
-          {Loc, sizeof(Ty)};
+          {Loc, sizeof(Ty), alignof(Ty)};
     }
 
     [[nodiscard]] static inline const Ty &
@@ -258,7 +261,7 @@ struct shader::location {
       // 把自身属性填入数组
       auto &dst = m.variables_meta.outputs_count;
       const_cast<shader_stage_variable_description &>(m.variables_meta.outputs[dst++]) =
-          {Loc, sizeof(Ty), interpolation<Ty>};
+          {Loc, sizeof(Ty), alignof(Ty), interpolation<Ty>};
     }
 
     [[nodiscard]] static inline Ty &

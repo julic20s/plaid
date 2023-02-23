@@ -25,6 +25,9 @@ public:
   /// 绑定描述符集
   void bind_descriptor_set();
 
+  /// 绑定顶点缓冲区
+  void bind_vertex_buffer(std::uint8_t binding, const std::byte *);
+
   /// 绑定图形管道
   void bind_pipeline(graphics_pipeline &);
 
