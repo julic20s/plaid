@@ -10,7 +10,7 @@ struct vert : plaid::vertex_shader {
 
   void main() {
     auto pos = position.get(this);
-    gl_position = {pos.x, pos.y, 0, 1};
+    *gl_position = {pos.x, pos.y, 0, 1};
     frag_color.get(this) = color.get(this);
   }
 };

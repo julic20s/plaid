@@ -44,7 +44,8 @@ struct shader_module {
   using entry_function = void(
       const std::byte *(&uniform)[1 << 8],
       const std::byte *(&input)[1 << 8],
-      std::byte *(&output)[1 << 8]
+      std::byte *(&output)[1 << 8],
+      std::byte **mutable_builtin
   );
 
   virtual ~shader_module() {}
@@ -73,20 +74,40 @@ public:
   static void entry(
       const std::byte *(&uniform)[1 << 8],
       const std::byte *(&input)[1 << 8],
-      std::byte *(&output)[1 << 8]
-  ) {
-    Ty shader;
-    shader.uniform = uniform;
-    shader.input = input;
-    shader.output = output;
-    (shader.*Entry)();
-  }
+      std::byte *(&output)[1 << 8],
+      std::byte **mutable_builtin
+  );
 
 private:
   const std::byte **uniform;
   const std::byte **input;
   std::byte **output;
 };
+
+/// 顶点着色器基类
+struct vertex_shader : shader {
+  vec4 *gl_position;
+};
+
+/// 片元着色器基类
+struct fragment_shader : shader {};
+
+template <class Ty, void (Ty::*Entry)()>
+void shader::entry(
+    const std::byte *(&uniform)[1 << 8],
+    const std::byte *(&input)[1 << 8],
+    std::byte *(&output)[1 << 8],
+    std::byte **mutable_builtin
+) {
+  Ty shader;
+  shader.uniform = uniform;
+  shader.input = input;
+  shader.output = output;
+  if constexpr (std::is_base_of_v<vertex_shader, Ty>) {
+    shader.gl_position = reinterpret_cast<vec4 *>(mutable_builtin[0]);
+  }
+  (shader.*Entry)();
+}
 
 class dsl_shader_module : public shader_module {
 private:
@@ -263,14 +284,6 @@ struct shader::binding {
     }
   };
 };
-
-/// 顶点着色器基类
-struct vertex_shader : shader {
-  vec4 gl_position;
-};
-
-/// 片元着色器基类
-struct fragment_shader : shader {};
 
 #endif
 
