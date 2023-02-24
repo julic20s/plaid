@@ -23,24 +23,6 @@ struct rect2d {
   extent2d extent;
 };
 
-/// 透明句柄
-enum struct handle : std::intptr_t {
-  invalid = 0,
-};
-
-[[nodiscard]] inline handle wrap(const void *ptr) noexcept {
-  return handle{reinterpret_cast<std::intptr_t>(ptr)};
-}
-
-template <class Ty>
-[[nodiscard]] inline Ty *unwrap(handle h) noexcept {
-  return reinterpret_cast<Ty *>(h);
-}
-
-[[nodiscard]] constexpr bool valid(handle h) noexcept {
-  return h == handle::invalid;
-}
-
 } // namespace plaid
 
 #endif // PLAID_UTILITY_H_

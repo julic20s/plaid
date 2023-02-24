@@ -74,6 +74,8 @@ struct cull_modes {
   static constexpr cull_mode back = 2;
 };
 
+class graphics_pipeline_impl;
+
 /// 图形管道句柄
 class graphics_pipeline {
 public:
@@ -122,29 +124,29 @@ public:
     std::uint8_t subpass;
   };
 
-  constexpr graphics_pipeline() : h(handle::invalid) {}
+  graphics_pipeline() : ptr(nullptr) {}
 
   explicit graphics_pipeline(const create_info &);
 
   graphics_pipeline(const graphics_pipeline &) = delete;
 
   graphics_pipeline(graphics_pipeline &&mov) noexcept {
-    h = mov.h;
-    mov.h = handle::invalid;
+    ptr = mov.ptr;
+    mov.ptr = nullptr;
   }
 
   ~graphics_pipeline();
 
   graphics_pipeline &operator=(graphics_pipeline &&mov) noexcept {
-    h = mov.h;
-    mov.h = handle::invalid;
+    ptr = mov.ptr;
+    mov.ptr = nullptr;
     return *this;
   }
-  
-  [[nodiscard]] inline handle handle() noexcept { return h; }
+
+  [[nodiscard]] inline operator graphics_pipeline_impl *() noexcept { return ptr; }
 
 private:
-  plaid::handle h;
+  graphics_pipeline_impl *ptr;
 };
 
 } // namespace plaid

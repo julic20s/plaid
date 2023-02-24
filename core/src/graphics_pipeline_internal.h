@@ -5,6 +5,8 @@
 #include <plaid/pipeline.h>
 #include <plaid/vec.h>
 
+#include "render_pass_internal.h"
+
 namespace plaid {
 
 class graphics_pipeline_impl {
@@ -17,21 +19,25 @@ public:
   void bind_vertex_buffer(std::uint8_t binding, const std::byte *);
 
   void draw(
+      plaid::render_pass_impl &,
+      const std::byte *(&vertex_buffer)[1 << 8],
       std::uint32_t vertex_count, std::uint32_t instance_count,
       std::uint32_t first_vertex, std::uint32_t first_instance
   );
 
 private:
   void draw_triangle_strip(
+      render_pass_impl &render_pass,
+      const std::byte *(&vertex_buffer)[1 << 8],
       std::uint32_t first_vert, std::uint32_t last_vert,
       std::uint32_t first_inst, std::uint32_t last_inst
   );
 
   /// 更新逐顶点属性
-  void obtain_next_vertex_attribute(std::uint32_t vert_id);
+  void obtain_next_vertex_attribute(const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t vert_id);
 
   /// 更新逐实例属性
-  void obtain_next_instance_attributes(std::uint32_t inst_id);
+  void obtain_next_instance_attributes(const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t inst_id);
 
   /// 执行顶点着色器
   void invoke_vertex_shader(std::uint8_t dst, vec4 &);
@@ -57,9 +63,6 @@ private:
   const std::byte *vertex_shader_input[1 << 8];
   /// 顶点着色器入口函数参数 2
   std::byte *vertex_shader_output[3][256];
-
-  /// 保存顶点输入绑定点数据指针
-  const std::byte *vertex_input_binding_map[1 << 8];
 
   /// 顶点着色器输出变量的堆内存指针
   std::byte *vertex_shader_output_resource;

@@ -2,9 +2,8 @@
 #ifndef PLAID_RENDER_PASS_H_
 #define PLAID_RENDER_PASS_H_
 
+#include <cstddef>
 #include <cstdint>
-
-#include "utility.h"
 
 namespace plaid {
 
@@ -24,6 +23,8 @@ struct subpass_description {
   const std::uint8_t *color_attachments;
 };
 
+struct render_pass_impl;
+
 /// 渲染通道句柄
 class render_pass {
 public:
@@ -38,27 +39,32 @@ public:
     const subpass_description *subpasses;
   };
 
-  constexpr render_pass() : h(handle::invalid) {}
+  render_pass() noexcept : ptr(nullptr) {}
 
   explicit render_pass(const create_info &);
 
   render_pass(const render_pass &) = delete;
 
   render_pass(render_pass &&mov) noexcept {
-    h = mov.h;
-    mov.h = handle::invalid;
+    ptr = mov.ptr;
+    mov.ptr = nullptr;
   }
 
+  ~render_pass();
+
   render_pass &operator=(render_pass &&mov) noexcept {
-    h = mov.h;
-    mov.h = handle::invalid;
+    ptr = mov.ptr;
+    mov.ptr = nullptr;
     return *this;
   }
 
-  [[nodiscard]] inline handle handle() noexcept { return h; }
+  [[nodiscard]] inline operator render_pass_impl *() noexcept { return ptr; }
+
+  /// 绑定管道附件
+  void bind_attachment(std::uint8_t id, std::byte *);
 
 private:
-  plaid::handle h;
+  render_pass_impl *ptr;
 };
 
 } // namespace plaid

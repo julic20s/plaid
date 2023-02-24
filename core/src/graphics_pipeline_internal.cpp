@@ -6,11 +6,13 @@
 using namespace plaid;
 
 graphics_pipeline::graphics_pipeline(const graphics_pipeline::create_info &info) {
-  h = wrap(new graphics_pipeline_impl(info));
+  ptr = new graphics_pipeline_impl(info);
 }
 
 graphics_pipeline::~graphics_pipeline() {
-  delete unwrap<graphics_pipeline_impl>(h);
+  if (ptr) {
+    delete ptr;
+  }
 }
 
 graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_info &info) {
@@ -120,11 +122,9 @@ graphics_pipeline_impl::~graphics_pipeline_impl() {
   ::operator delete(vertex_shader_output_resource, vertex_shader_output_resource_align);
 }
 
-void graphics_pipeline_impl::bind_vertex_buffer(std::uint8_t binding, const std::byte *buf) {
-  vertex_input_binding_map[binding] = buf;
-}
-
 void graphics_pipeline_impl::draw(
+    render_pass_impl &render_pass,
+    const std::byte *(&vertex_buffer)[1 << 8],
     std::uint32_t vertex_count, std::uint32_t instance_count,
     std::uint32_t first_vertex, std::uint32_t first_instance
 ) {
@@ -132,7 +132,7 @@ void graphics_pipeline_impl::draw(
   auto last_inst = first_instance + instance_count;
   switch (vertex_assembly) {
     case primitive_topology::triangle_strip:
-      draw_triangle_strip(first_vertex, last_vert, first_instance, last_inst);
+      draw_triangle_strip(render_pass, vertex_buffer, first_vertex, last_vert, first_instance, last_inst);
       break;
     case primitive_topology::line_strip:
       throw std::runtime_error("Unsupported topology line_strip.");
@@ -141,6 +141,8 @@ void graphics_pipeline_impl::draw(
 }
 
 void graphics_pipeline_impl::draw_triangle_strip(
+    render_pass_impl &render_pass,
+    const std::byte *(&vertex_buffer)[1 << 8],
     std::uint32_t first_vert, std::uint32_t last_vert,
     std::uint32_t first_inst, std::uint32_t last_inst
 ) {
@@ -154,13 +156,13 @@ void graphics_pipeline_impl::draw_triangle_strip(
   // 和 [vertex_input_per_instance_attributes] 记录顶点属性在顶点缓冲区的位置，
   // 绘制同一实例的不同顶点，只需要更新逐顶点数据
   for (auto inst = first_inst; inst != last_inst; ++inst) {
-    obtain_next_instance_attributes(inst);
+    obtain_next_instance_attributes(vertex_buffer, inst);
 
     std::uint32_t indices[]{0, 1, 2};
     // 需要先单独处理前三个顶点的顶点着色器
     for (auto i : indices) {
       // 顶点编号刚好对应数据位置，而下面的 while 循环则不能如此
-      obtain_next_vertex_attribute(i);
+      obtain_next_vertex_attribute(vertex_buffer, i);
       invoke_vertex_shader(i, clip_coords[i]);
     }
 
@@ -172,27 +174,31 @@ void graphics_pipeline_impl::draw_triangle_strip(
 
       indices[ping_pong] += 3;
       if (indices[ping_pong] == last_vert) break;
-      obtain_next_vertex_attribute(indices[ping_pong]);
+      obtain_next_vertex_attribute(vertex_buffer, indices[ping_pong]);
       invoke_vertex_shader(ping_pong, clip_coords[ping_pong]);
       ping_pong = (ping_pong + 1) % 3;
     }
   }
 }
 
-void graphics_pipeline_impl::obtain_next_vertex_attribute(std::uint32_t vert_id) {
+void graphics_pipeline_impl::obtain_next_vertex_attribute(
+  const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t vert_id
+) {
   auto it = vertex_input_per_vertex_attributes;
   auto ed = it + vertex_input_per_vertex_attributes_count;
   for (; it != ed; ++it) {
-    auto ptr = vertex_input_binding_map[it->binding] + it->stride * vert_id + it->offset;
+    auto ptr = vertex_buffer[it->binding] + it->stride * vert_id + it->offset;
     vertex_shader_input[it->location] = ptr;
   }
 }
 
-void graphics_pipeline_impl::obtain_next_instance_attributes(std::uint32_t inst_id) {
+void graphics_pipeline_impl::obtain_next_instance_attributes(
+  const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t inst_id
+) {
   auto it = vertex_input_per_instance_attributes;
   auto ed = it + vertex_input_per_instance_attributes_count;
   for (; it != ed; ++it) {
-    auto ptr = vertex_input_binding_map[it->binding] + it->stride * inst_id + it->offset;
+    auto ptr = vertex_buffer[it->binding] + it->stride * inst_id + it->offset;
     vertex_shader_input[it->location] = ptr;
   }
 }
@@ -204,5 +210,4 @@ void graphics_pipeline_impl::invoke_vertex_shader(std::uint8_t dst, vec4 &clip_c
 }
 
 void graphics_pipeline_impl::rasterize_triangle(vec4 (&clip_coord)[3]) {
-  
 }
