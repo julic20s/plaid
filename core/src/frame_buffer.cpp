@@ -4,7 +4,7 @@ using namespace plaid;
 
 frame_buffer::frame_buffer(
     std::uint16_t attachments_count,
-    std::byte **attachments,
+    std::byte *attachments[],
     std::uint32_t width, std::uint32_t height
 ) {
   if (attachments_count) {

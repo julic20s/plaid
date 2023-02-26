@@ -4,6 +4,8 @@
 
 struct window_state {
   bool should_close;
+  std::uint32_t width;
+  std::uint32_t height;
   HWND hwnd;
   HDC buffer_dc;
   std::uint32_t *surface;
@@ -17,6 +19,12 @@ struct window_state {
     auto hdc = GetDC(hwnd);
     buffer_dc = CreateCompatibleDC(hdc);
     ReleaseDC(hwnd, hdc);
+  }
+
+  void remove() {
+    hwnd = nullptr;
+    RemoveProp(hwnd, window_state_properties);
+    DeleteDC(buffer_dc);
   }
 
   [[nodiscard]] static window_state &get(HWND hwnd) {
@@ -35,10 +43,13 @@ struct window_state {
 
     auto bitmap = CreateDIBSection(
         buffer_dc, reinterpret_cast<BITMAPINFO *>(&bitmap_header),
-        DIB_RGB_COLORS, reinterpret_cast<void **>(surface), nullptr, 0
+        DIB_RGB_COLORS, reinterpret_cast<void **>(&surface), nullptr, 0
     );
 
     DeleteObject(SelectObject(buffer_dc, bitmap));
+
+    this->width = width;
+    this->height = height;
 
     window temp(this);
     on_surface_recreate(temp, width, height);
@@ -159,6 +170,12 @@ std::uint32_t *window::surface() {
   return state->surface;
 }
 
+void window::commit() {
+  auto hdc = GetDC(state->hwnd);
+  BitBlt(hdc, 0, 0, state->width, state->height, state->buffer_dc, 0, 0, SRCCOPY);
+  ReleaseDC(state->hwnd, hdc);
+}
+
 void window::poll_events() {
   MSG msg;
   if (PeekMessage(&msg, state->hwnd, 0, 0, PM_REMOVE)) {
@@ -173,6 +190,7 @@ void window::on_surface_recreate(std::function<void (window &, std::uint32_t, st
 
 void window::destroy() {
   DestroyWindow(state->hwnd);
+  state->remove();
   delete state;
   state = nullptr;
 }

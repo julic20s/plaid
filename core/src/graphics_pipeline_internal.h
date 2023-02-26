@@ -38,7 +38,7 @@ private:
   /// 执行顶点着色器
   void invoke_vertex_shader(std::uint8_t dst, vec4 &);
 
-  void rasterize_triangle(vec4 (&)[3]);
+  void rasterize_triangle(render_pass::state &, vec4 (&)[3]);
 
 public:
 

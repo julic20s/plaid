@@ -26,6 +26,14 @@ public:
 
   frame_buffer &operator=(frame_buffer &&);
 
+  [[nodiscard]] std::uint32_t width() { return m_width; }
+
+  [[nodiscard]] std::uint32_t height() { return m_height; }
+
+  [[nodiscard]] std::byte *attachement(std::uint16_t id) {
+    return m_attachments[id];
+  }
+
 private:
 
   std::uint16_t m_attachments_count;

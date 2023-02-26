@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <stdexcept>
 
+#include <plaid/frame_buffer.h>
+
 #include "graphics_pipeline_internal.h"
 
 using namespace plaid;
@@ -140,7 +142,7 @@ void graphics_pipeline_impl::draw(
 }
 
 void graphics_pipeline_impl::draw_triangle_strip(
-    render_pass::state &render_pass,
+    render_pass::state &state,
     std::uint32_t first_vert, std::uint32_t last_vert,
     std::uint32_t first_inst, std::uint32_t last_inst
 ) {
@@ -148,7 +150,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
     return;
   }
 
-  auto &vertex_buffer = render_pass.m_vertex_buffer;
+  auto &vertex_buffer = state.m_vertex_buffer;
 
   vec4 clip_coords[3];
   // 采用 IMR 模式，每当完成相邻三个顶点的顶点着色器之后马上进行图元的光栅化
@@ -170,7 +172,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
     // （虽然现在也还没有写面剔除
     int ping_pong = 0;
     while (1) {
-      rasterize_triangle(clip_coords);
+      rasterize_triangle(state, clip_coords);
 
       indices[ping_pong] += 3;
       if (indices[ping_pong] == last_vert) break;
@@ -182,7 +184,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
 }
 
 void graphics_pipeline_impl::obtain_next_vertex_attribute(
-  const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t vert_id
+    const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t vert_id
 ) {
   auto it = vertex_input_per_vertex_attributes;
   auto ed = it + vertex_input_per_vertex_attributes_count;
@@ -193,7 +195,7 @@ void graphics_pipeline_impl::obtain_next_vertex_attribute(
 }
 
 void graphics_pipeline_impl::obtain_next_instance_attributes(
-  const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t inst_id
+    const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t inst_id
 ) {
   auto it = vertex_input_per_instance_attributes;
   auto ed = it + vertex_input_per_instance_attributes_count;
@@ -209,5 +211,59 @@ void graphics_pipeline_impl::invoke_vertex_shader(std::uint8_t dst, vec4 &clip_c
   vertex_shader(descriptor_set_map, vertex_shader_input, vertex_shader_output[dst], &mutable_builtin);
 }
 
-void graphics_pipeline_impl::rasterize_triangle(vec4 (&clip_coord)[3]) {
+void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 (&clip_coord)[3]) {
+  auto width = state.m_frame_buffer->width();
+  auto height = state.m_frame_buffer->height();
+  [[unlikely]] if (!width || !height)
+    return;
+
+  vec2 view[3];
+  float z[3];
+  {
+    auto *view_it = view;
+    auto *z_it = z;
+    for (auto &v : clip_coord) {
+      view_it->x = (v.x / v.w + 1.f) / 2 * width;
+      view_it->y = (v.y / v.w + 1.f) / 2 * height;
+      *z_it = v.z / v.w;
+      ++view_it;
+      ++z_it;
+    }
+  }
+
+  auto l = width - 1, t = height - 1, r = 0u, b = 0u;
+  for (auto &v : view) {
+    l = (std::min)(l, static_cast<decltype(l)>(v.x));
+    t = (std::min)(t, static_cast<decltype(l)>(v.y));
+    r = (std::max)(r, static_cast<decltype(l)>(v.x));
+    b = (std::max)(b, static_cast<decltype(l)>(v.y));
+  }
+
+  auto ab = view[1] - view[0];
+  auto ac = view[2] - view[0];
+  auto m = cross(ab, ac);
+  if (!m) {
+    return;
+  }
+  m = 1 / m;
+
+  auto pa = view[0] - vec2{l + .5f, t + .5f};
+  auto um = cross(ac, pa);
+  auto vm = cross(pa, ab);
+
+  auto color_attachment = reinterpret_cast<std::uint32_t *>(state.m_frame_buffer->attachement(0));
+
+  for (auto y = t; y != b; ++y) {
+    auto um_first = um, vm_first = vm;
+    for (auto x = l; x != r; ++x) {
+      auto u = um * m, v = vm * m;
+      if (u >= 0 && v >= 0 && u + v <= 1) {
+        color_attachment[y * width + x] = 0xff00ff;
+      }
+      um += ac.y;
+      vm -= ab.y;
+    }
+    um = um_first - ac.x;
+    vm = vm_first + ab.x;
+  }
 }

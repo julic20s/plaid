@@ -1,3 +1,5 @@
+#include <ctime>
+
 #include <plaid.h>
 
 #include "triangle.hpp"
@@ -85,10 +87,28 @@ void render() {
       {{-.5, .5}, {0, 1, 0}},
       {{.5f, .5}, {0, 0, 1}},
   };
-  plaid::render_pass::state state(viewer_render_pass);
+  plaid::render_pass::begin_info begin_info {
+    .render_pass = viewer_render_pass,
+    .frame_buffer = viewer_frame_buffer,
+  };
+  plaid::render_pass::state state(begin_info);
   state.bind_vertex_buffer(0, reinterpret_cast<const std::byte *>(triangle));
   state.draw(viewer_pipeline, 3, 1, 0, 0);
   state.next_subpass();
+}
+
+void print_fps() {
+  static auto previous_tick = clock();
+  static auto frame_count = 0;
+
+  ++frame_count;
+
+  auto tick = clock();
+  if (tick - previous_tick >= CLOCKS_PER_SEC) {
+    printf("fps: %d\n", frame_count);
+    frame_count = 0;
+    previous_tick = tick;
+  }
 }
 
 int main(int argc, const char *argv[]) {
@@ -107,9 +127,11 @@ int main(int argc, const char *argv[]) {
   initialize();
 
   window.show();
-  while (!window.should_close()) {
+  [[likely]] while (!window.should_close()) {
     /// 渲染帧
     render();
+    window.commit();
+    print_fps();
     window.poll_events();
   }
 

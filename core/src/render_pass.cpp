@@ -22,8 +22,8 @@ render_pass::~render_pass() {
   }
 }
 
-render_pass::state::state(const render_pass &pass) {
-  
+render_pass::state::state(const begin_info &begin) {
+  m_frame_buffer = &begin.frame_buffer;
 }
 
 void render_pass::state::next_subpass() {

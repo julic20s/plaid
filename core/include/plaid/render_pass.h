@@ -8,6 +8,7 @@
 namespace plaid {
 class graphics_pipeline_impl;
 class graphics_pipeline;
+class frame_buffer;
 } // namespace plaid
 
 namespace plaid {
@@ -58,14 +59,15 @@ private:
   subpass *m_subpasses;
 };
 
-struct begin_info {
+struct render_pass::begin_info {
   render_pass &render_pass;
+  frame_buffer &frame_buffer;
 };
 
 class render_pass::state {
 public:
 
-  state(const render_pass &);
+  state(const begin_info &);
 
   /// 绑定描述符集
   void bind_descriptor_set(std::uint8_t binding, const std::byte *);
@@ -87,6 +89,7 @@ private:
 
   const std::byte *m_descriptor_set[1 << 8];
   const std::byte *m_vertex_buffer[1 << 8];
+  frame_buffer *m_frame_buffer;
 
   friend class graphics_pipeline_impl;
 };
