@@ -7,7 +7,7 @@
 #include <plaid/vec.h>
 
 // 基础功能
-#include <plaid/context.h>
+#include <plaid/frame_buffer.h>
 #include <plaid/pipeline.h>
 #include <plaid/render_pass.h>
 #include <plaid/shader.h>

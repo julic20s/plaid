@@ -3,14 +3,14 @@
 #define PLAID_GRAPHICS_PIPELINE_INTERNAL_H_
 
 #include <plaid/pipeline.h>
+#include <plaid/render_pass.h>
 #include <plaid/vec.h>
-
-#include "render_pass_internal.h"
 
 namespace plaid {
 
 class graphics_pipeline_impl {
 public:
+
   graphics_pipeline_impl(const graphics_pipeline::create_info &);
 
   ~graphics_pipeline_impl();
@@ -19,16 +19,15 @@ public:
   void bind_vertex_buffer(std::uint8_t binding, const std::byte *);
 
   void draw(
-      plaid::render_pass_impl &,
-      const std::byte *(&vertex_buffer)[1 << 8],
+      plaid::render_pass::state &,
       std::uint32_t vertex_count, std::uint32_t instance_count,
       std::uint32_t first_vertex, std::uint32_t first_instance
   );
 
 private:
+
   void draw_triangle_strip(
-      render_pass_impl &render_pass,
-      const std::byte *(&vertex_buffer)[1 << 8],
+      render_pass::state &,
       std::uint32_t first_vert, std::uint32_t last_vert,
       std::uint32_t first_inst, std::uint32_t last_inst
   );
@@ -45,6 +44,7 @@ private:
   void rasterize_triangle(vec4 (&)[3]);
 
 public:
+
   viewport viewport;
   primitive_topology vertex_assembly;
 

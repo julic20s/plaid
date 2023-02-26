@@ -6,65 +6,88 @@
 #include <cstdint>
 
 namespace plaid {
+class graphics_pipeline_impl;
+class graphics_pipeline;
+}
 
-/// 描述附件规格
-struct attachment_description {
-};
+namespace plaid {
 
-/// 描述渲染子通道规格
+using attachment_reference = std::uint8_t;
+
 struct subpass_description {
-  /// 输入附件的数量
   std::uint16_t input_attachments_count;
-  /// 颜色附件的数量
   std::uint16_t color_attachments_count;
-  /// 输入附件描述数组
-  const std::uint8_t *input_attachments;
-  /// 颜色附件描述数组
-  const std::uint8_t *color_attachments;
+  const attachment_reference *input_attachments;
+  const attachment_reference *color_attachments;
+  const attachment_reference *depth_stencil_attachment;
 };
 
-struct render_pass_impl;
-
-/// 渲染通道句柄
 class render_pass {
 public:
-  struct create_info {
-    /// 附件数量
-    std::uint16_t attachments_count;
-    /// 子通道数量
-    std::uint16_t subpass_count;
-    /// 附件描述数组
-    const attachment_description *attachments;
-    /// 子通道描述数组
-    const subpass_description *subpasses;
-  };
 
-  render_pass() noexcept : ptr(nullptr) {}
+  render_pass() : m_subpasses_count(0), m_subpasses(nullptr) {}
 
-  explicit render_pass(const create_info &);
+  render_pass(std::uint32_t subpasses_count, subpass_description *subpasses);
 
   render_pass(const render_pass &) = delete;
 
   render_pass(render_pass &&mov) noexcept {
-    ptr = mov.ptr;
-    mov.ptr = nullptr;
+    m_subpasses_count = mov.m_subpasses_count;
+    m_subpasses = mov.m_subpasses;
+    mov.m_subpasses_count = 0;
+    mov.m_subpasses = nullptr;
   }
 
   ~render_pass();
 
-  render_pass &operator=(render_pass &&mov) noexcept {
-    ptr = mov.ptr;
-    mov.ptr = nullptr;
-    return *this;
-  }
+  /// 记录渲染通道状态
+  class state;
 
-  [[nodiscard]] inline operator render_pass_impl *() noexcept { return ptr; }
-
-  /// 绑定管道附件
-  void bind_attachment(std::uint8_t id, std::byte *);
+  struct begin_info;
 
 private:
-  render_pass_impl *ptr;
+
+  class subpass;
+
+  std::uint32_t m_subpasses_count;
+  subpass *m_subpasses;
+};
+
+struct begin_info {
+  render_pass &render_pass;
+
+};
+
+class render_pass::state {
+public:
+
+  state(const render_pass &);
+
+  /// 绑定描述符集
+  void bind_descriptor_set(std::uint8_t binding, const std::byte *);
+
+  /// 绑定顶点缓冲区
+  void bind_vertex_buffer(std::uint8_t binding, const std::byte *);
+
+  /// 绑定图形管道
+  void bind_pipeline(graphics_pipeline &);
+
+  /// 根据当前渲染通道状态，绘制一帧
+  void draw(
+      std::uint32_t vertex_count, std::uint32_t instance_count,
+      std::uint32_t first_vertex, std::uint32_t first_instance
+  );
+
+  /// 移动状态到下一个渲染子通道
+  void next_subpass();
+
+private:
+
+  const std::byte *m_descriptor_set[1 << 8];
+  const std::byte *m_vertex_buffer[1 << 8];
+  graphics_pipeline_impl *m_graphics_pipeline;
+
+  friend class graphics_pipeline_impl;
 };
 
 } // namespace plaid

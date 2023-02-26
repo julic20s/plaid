@@ -123,8 +123,7 @@ graphics_pipeline_impl::~graphics_pipeline_impl() {
 }
 
 void graphics_pipeline_impl::draw(
-    render_pass_impl &render_pass,
-    const std::byte *(&vertex_buffer)[1 << 8],
+    render_pass::state &state,
     std::uint32_t vertex_count, std::uint32_t instance_count,
     std::uint32_t first_vertex, std::uint32_t first_instance
 ) {
@@ -132,7 +131,7 @@ void graphics_pipeline_impl::draw(
   auto last_inst = first_instance + instance_count;
   switch (vertex_assembly) {
     case primitive_topology::triangle_strip:
-      draw_triangle_strip(render_pass, vertex_buffer, first_vertex, last_vert, first_instance, last_inst);
+      draw_triangle_strip(state, first_vertex, last_vert, first_instance, last_inst);
       break;
     case primitive_topology::line_strip:
       throw std::runtime_error("Unsupported topology line_strip.");
@@ -141,14 +140,15 @@ void graphics_pipeline_impl::draw(
 }
 
 void graphics_pipeline_impl::draw_triangle_strip(
-    render_pass_impl &render_pass,
-    const std::byte *(&vertex_buffer)[1 << 8],
+    render_pass::state &render_pass,
     std::uint32_t first_vert, std::uint32_t last_vert,
     std::uint32_t first_inst, std::uint32_t last_inst
 ) {
   [[unlikely]] if (last_vert - first_inst <= 2) {
     return;
   }
+
+  auto &vertex_buffer = render_pass.m_vertex_buffer;
 
   vec4 clip_coords[3];
   // 采用 IMR 模式，每当完成相邻三个顶点的顶点着色器之后马上进行图元的光栅化

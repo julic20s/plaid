@@ -71,7 +71,7 @@ void render() {
       {{-.5, .5}, {0, 1, 0}},
       {{.5f, .5}, {0, 0, 1}},
   };
-  plaid::render_pass_state state(viewer_render_pass);
+  plaid::render_pass::state state(viewer_render_pass);
   state.bind_pipeline(viewer_pipeline);
   state.bind_vertex_buffer(0, reinterpret_cast<const std::byte *>(triangle));
   state.draw(3, 1, 0, 0);
