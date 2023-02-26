@@ -2,10 +2,28 @@
 
 using namespace plaid;
 
-render_pass::~render_pass() {
+struct render_pass::subpass {
+
+};
+
+render_pass::render_pass(std::uint32_t subpasses_count, const subpass_description *subpasses) {
+  if (subpasses_count) {
+    m_subpasses_count = subpasses_count;
+    m_subpasses = new subpass[subpasses_count];
+  } else {
+    m_subpasses_count = 0;
+    m_subpasses = nullptr;
+  }
 }
 
-render_pass::state::state(const plaid::render_pass &pass) {
+render_pass::~render_pass() {
+  if (m_subpasses) {
+    delete [] m_subpasses;
+  }
+}
+
+render_pass::state::state(const render_pass &pass) {
+  
 }
 
 void render_pass::state::next_subpass() {

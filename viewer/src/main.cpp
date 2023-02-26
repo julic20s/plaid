@@ -11,9 +11,17 @@ struct vertex {
 
 plaid::render_pass viewer_render_pass;
 plaid::graphics_pipeline viewer_pipeline;
+plaid::frame_buffer viewer_frame_buffer;
 
 /// 初始化渲染通道
 void initialize_render_pass() {
+  plaid::attachment_reference color_attachment = 0;
+  plaid::subpass_description subpass {
+    .color_attachments_count = 1,
+    .color_attachments = &color_attachment,
+  };
+
+  viewer_render_pass = plaid::render_pass(1, &subpass);
 }
 
 /// 初始化图形管道
@@ -65,6 +73,12 @@ void initialize() {
   initialize_pipeline();
 }
 
+void recreate_frame_buffer(std::uint32_t *bytes, std::uint32_t width, std::uint32_t height) {
+  viewer_frame_buffer = plaid::frame_buffer(
+    1, reinterpret_cast<std::byte **>(&bytes), width, height
+  );
+}
+
 void render() {
   static const vertex triangle[] = {
       {{0, -.5}, {1, 0, 0}},
@@ -85,6 +99,10 @@ int main(int argc, const char *argv[]) {
   if (!window.valid()) {
     return 0;
   }
+
+  window.on_surface_recreate([](class window &w, std::uint32_t width, std::uint32_t height) {
+    recreate_frame_buffer(w.surface(), width, height);
+  });
 
   initialize();
 

@@ -5,16 +5,44 @@
 struct window_state {
   bool should_close;
   HWND hwnd;
+  HDC buffer_dc;
+  std::uint32_t *surface;
+  std::function<void(window &, std::uint32_t, std::uint32_t)> on_surface_recreate;
 
   static constexpr auto window_state_properties = TEXT("plaid_window_state");
 
   void inject(HWND hwnd) {
     this->hwnd = hwnd;
     SetProp(hwnd, window_state_properties, this);
+    auto hdc = GetDC(hwnd);
+    buffer_dc = CreateCompatibleDC(hdc);
+    ReleaseDC(hwnd, hdc);
   }
 
   [[nodiscard]] static window_state &get(HWND hwnd) {
     return *reinterpret_cast<window_state *>(GetProp(hwnd, window_state_properties));
+  }
+
+  void recreate_surface(LONG width, LONG height) {
+    BITMAPINFOHEADER bitmap_header{
+        .biSize = sizeof(BITMAPINFOHEADER),
+        .biWidth = width,
+        .biHeight = -height,
+        .biPlanes = 1,
+        .biBitCount = 32,
+        .biCompression = BI_RGB,
+    };
+
+    auto bitmap = CreateDIBSection(
+        buffer_dc, reinterpret_cast<BITMAPINFO *>(&bitmap_header),
+        DIB_RGB_COLORS, reinterpret_cast<void **>(surface), nullptr, 0
+    );
+
+    DeleteObject(SelectObject(buffer_dc, bitmap));
+
+    window temp(this);
+    on_surface_recreate(temp, width, height);
+    temp.state = nullptr;
   }
 };
 
@@ -23,12 +51,17 @@ static auto window_class_name = TEXT("plaid_window");
 static LRESULT CALLBACK handle_window_message(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
   auto &state = window_state::get(hwnd);
 
-  if (message == WM_CLOSE) {
-    state.should_close = true;
-    return 0;
-  } else {
-    return DefWindowProc(hwnd, message, wparam, lparam);
+  switch (message) {
+    case WM_CLOSE:
+      state.should_close = true;
+      break;
+    case WM_SIZE:
+      state.recreate_surface(LOWORD(lparam), HIWORD(lparam));
+      break;
+    [[likely]] default:
+      return DefWindowProc(hwnd, message, wparam, lparam);
   }
+  return 0;
 }
 
 static void register_window_class() {
@@ -122,12 +155,20 @@ bool window::should_close() {
   return state->should_close;
 }
 
+std::uint32_t *window::surface() {
+  return state->surface;
+}
+
 void window::poll_events() {
   MSG msg;
   if (PeekMessage(&msg, state->hwnd, 0, 0, PM_REMOVE)) {
     TranslateMessage(&msg);
     DispatchMessage(&msg);
   }
+}
+
+void window::on_surface_recreate(std::function<void (window &, std::uint32_t, std::uint32_t)> func) {
+  state->on_surface_recreate = func;
 }
 
 void window::destroy() {
