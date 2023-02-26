@@ -15,9 +15,6 @@ public:
 
   ~graphics_pipeline_impl();
 
-  /// 绑定顶点缓冲区
-  void bind_vertex_buffer(std::uint8_t binding, const std::byte *);
-
   void draw(
       plaid::render_pass::state &,
       std::uint32_t vertex_count, std::uint32_t instance_count,
