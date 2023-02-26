@@ -8,7 +8,7 @@
 namespace plaid {
 class graphics_pipeline_impl;
 class graphics_pipeline;
-}
+} // namespace plaid
 
 namespace plaid {
 
@@ -55,7 +55,6 @@ private:
 
 struct begin_info {
   render_pass &render_pass;
-
 };
 
 class render_pass::state {
@@ -69,11 +68,9 @@ public:
   /// 绑定顶点缓冲区
   void bind_vertex_buffer(std::uint8_t binding, const std::byte *);
 
-  /// 绑定图形管道
-  void bind_pipeline(graphics_pipeline &);
-
   /// 根据当前渲染通道状态，绘制一帧
   void draw(
+      graphics_pipeline_impl *,
       std::uint32_t vertex_count, std::uint32_t instance_count,
       std::uint32_t first_vertex, std::uint32_t first_instance
   );
@@ -85,7 +82,6 @@ private:
 
   const std::byte *m_descriptor_set[1 << 8];
   const std::byte *m_vertex_buffer[1 << 8];
-  graphics_pipeline_impl *m_graphics_pipeline;
 
   friend class graphics_pipeline_impl;
 };
