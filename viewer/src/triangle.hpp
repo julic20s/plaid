@@ -10,7 +10,7 @@ struct vert : plaid::vertex_shader {
 
   void main() {
     auto pos = position.get(this);
-    *gl_position = {pos.x, pos.y, 0, 1};
+    *gl_position = {pos.x, pos.y, 1, 1};
     frag_color.get(this) = color.get(this);
   }
 };
@@ -21,7 +21,8 @@ struct frag : plaid::fragment_shader {
   location<0>::out<plaid::vec3> final_color;
 
   void main() {
-    final_color.get(this) = frag_color.get(this);
+    constexpr auto gamma = 1 / 2.2f;
+    final_color.get(this) = pow(frag_color.get(this), gamma);
   }
 };
 

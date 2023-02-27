@@ -54,6 +54,10 @@ struct vec2 {
   return a.x * b.x + a.y * b.y;
 }
 
+[[nodiscard]] constexpr vec2 pow(vec2 a, float n) noexcept {
+  return {std::pow(a.x, n), std::pow(a.y, n)};
+}
+
 } // namespace plaid
 
 // 三维向量
@@ -106,6 +110,10 @@ struct vec3 {
   return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
+[[nodiscard]] constexpr vec3 pow(vec3 a, float n) noexcept {
+  return {std::pow(a.x, n), std::pow(a.y, n), std::pow(a.z, n)};
+}
+
 } // namespace plaid
 
 // 四维向量
@@ -147,6 +155,10 @@ struct vec4 {
 
 [[nodiscard]] constexpr float dot(vec4 a, vec4 b) noexcept {
   return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+}
+
+[[nodiscard]] constexpr vec4 pow(vec4 a, float n) noexcept {
+  return {std::pow(a.x, n), std::pow(a.y, n), std::pow(a.z, n), std::pow(a.w, n)};
 }
 
 } // namespace plaid

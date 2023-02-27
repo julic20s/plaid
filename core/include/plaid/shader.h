@@ -210,24 +210,7 @@ public:
 template <std::uint8_t Loc>
 struct shader::location {
   template <class Ty>
-  struct in {
-    in() = default;
-
-    in(dsl_shader_module &m) noexcept {
-      // 把自身属性填入数组
-      auto &dst = m.variables_meta.inputs_count;
-      const_cast<shader_stage_variable_description &>(m.variables_meta.inputs[dst++]) =
-          {Loc, sizeof(Ty), alignof(Ty)};
-    }
-
-    [[nodiscard]] static inline const Ty &
-    get(shader *host) noexcept {
-      return *reinterpret_cast<const Ty *>(host->input[Loc]);
-    }
-  };
-
-  template <class Ty>
-  class out {
+  class in {
   private:
     template <class MTy>
     static inline void interpolation(
@@ -255,13 +238,30 @@ struct shader::location {
     }
 
   public:
+    in() = default;
+
+    in(dsl_shader_module &m) noexcept {
+      // 把自身属性填入数组
+      auto &dst = m.variables_meta.inputs_count;
+      const_cast<shader_stage_variable_description &>(m.variables_meta.inputs[dst++]) =
+          {Loc, sizeof(Ty), alignof(Ty), interpolation<Ty>};
+    }
+
+    [[nodiscard]] static inline const Ty &
+    get(shader *host) noexcept {
+      return *reinterpret_cast<const Ty *>(host->input[Loc]);
+    }
+  };
+
+  template <class Ty>
+  struct out {
     out() = default;
 
     out(dsl_shader_module &m) noexcept {
       // 把自身属性填入数组
       auto &dst = m.variables_meta.outputs_count;
       const_cast<shader_stage_variable_description &>(m.variables_meta.outputs[dst++]) =
-          {Loc, sizeof(Ty), alignof(Ty), interpolation<Ty>};
+          {Loc, sizeof(Ty), alignof(Ty)};
     }
 
     [[nodiscard]] static inline Ty &

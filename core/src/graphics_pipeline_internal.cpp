@@ -20,8 +20,12 @@ graphics_pipeline::~graphics_pipeline() {
 graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_info &info) {
   vertex_assembly = info.input_assembly_state.topology;
 
+  auto vertex_shader_module = info.shader_stage.vertex_shader;
+  auto fragment_shader_module = info.shader_stage.fragment_shader;
+
   // 获取顶点着色器入口函数
-  vertex_shader = info.shader_stage.vertex_shader->entry;
+  vertex_shader = vertex_shader_module->entry;
+  fragment_shader = fragment_shader_module->entry;
 
   // 把绑定点描述信息放入稀疏表方便快速访问
   const vertex_input_binding_description *vert_in_binding_desc_map[1 << 8];
@@ -61,7 +65,7 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
     vertex_input_per_instance_attributes_count = per_inst_cnt;
   }
 
-  auto vs_output_cnt = info.shader_stage.vertex_shader->variables_meta.outputs_count;
+  auto vs_output_cnt = vertex_shader_module->variables_meta.outputs_count;
   if (vs_output_cnt) {
     // 为顶点着色器输出分配内存
 
@@ -73,7 +77,7 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
 
     {
       // 把类型信息放入待排序数组
-      auto it = info.shader_stage.vertex_shader->variables_meta.outputs;
+      auto it = vertex_shader_module->variables_meta.outputs;
       auto ed = it + vs_output_cnt;
       for (auto dst = sorted_attrs; it != ed; ++it, ++dst) {
         *dst = {
@@ -96,32 +100,48 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
     std::size_t output_size = 0;
     for (auto it = sorted_attrs, ed = sorted_attrs + vs_output_cnt; it != ed; ++it) {
       output_size = (output_size + it->align - 1) / it->align * it->align;
-      for (auto &o : vertex_shader_output) {
-        // 先把成员偏移量放到记录数组内
-        o[it->location] = reinterpret_cast<std::byte *>(output_size);
+      // 先把成员偏移量放到记录数组内
+      auto offset_ptr = reinterpret_cast<std::byte *>(output_size);
+      for (auto &out : vertex_shader_output) {
+        out[it->location] = offset_ptr;
       }
+      fragment_shader_input[it->location] = offset_ptr;
       output_size += it->size;
     }
 
     // 申请内存
-    vertex_shader_output_resource_align = std::align_val_t(sorted_attrs[vs_output_cnt - 1].align);
-    vertex_shader_output_resource = reinterpret_cast<std::byte *>(
-        ::operator new(output_size * 3, vertex_shader_output_resource_align)
+    stage_shader_variables_resource_align = std::align_val_t(sorted_attrs[vs_output_cnt - 1].align);
+    stage_shader_variables_resource = reinterpret_cast<std::byte *>(
+        ::operator new(output_size * 4, stage_shader_variables_resource_align)
     );
 
     for (auto it = sorted_attrs, ed = sorted_attrs + vs_output_cnt; it != ed; ++it) {
       // 整个输出结构的偏移量
-      auto offset = reinterpret_cast<std::ptrdiff_t>(vertex_shader_output_resource);
+      auto offset = reinterpret_cast<std::ptrdiff_t>(stage_shader_variables_resource);
       for (auto &o : vertex_shader_output) {
         o[it->location] += offset;
         offset += output_size;
       }
+      fragment_shader_input[it->location] += offset;
     }
   }
+
+  {
+    // 把片元着色器的输入结构保存下来
+    fragment_attributes_count = fragment_shader_module->variables_meta.inputs_count;
+    auto it = fragment_shader_module->variables_meta.inputs;
+    auto ed = it + fragment_attributes_count;
+    auto attr_it = fragment_attributes;
+    for (; it != ed; ++it) {
+      attr_it->location = it->location;
+      attr_it->interpolation = it->interpolation;
+    }
+  }
+  
 }
 
 graphics_pipeline_impl::~graphics_pipeline_impl() {
-  ::operator delete(vertex_shader_output_resource, vertex_shader_output_resource_align);
+  ::operator delete(stage_shader_variables_resource, stage_shader_variables_resource_align);
 }
 
 void graphics_pipeline_impl::draw(
@@ -214,8 +234,9 @@ void graphics_pipeline_impl::invoke_vertex_shader(std::uint8_t dst, vec4 &clip_c
 void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 (&clip_coord)[3]) {
   auto width = state.m_frame_buffer->width();
   auto height = state.m_frame_buffer->height();
-  [[unlikely]] if (!width || !height)
+  [[unlikely]] if (!width || !height) {
     return;
+  }
 
   vec2 view[3];
   float z[3];
@@ -251,14 +272,19 @@ void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 
   auto um = cross(ac, pa);
   auto vm = cross(pa, ab);
 
-  auto color_attachment = reinterpret_cast<std::uint32_t *>(state.m_frame_buffer->attachement(0));
-
   for (auto y = t; y != b; ++y) {
     auto um_first = um, vm_first = vm;
     for (auto x = l; x != r; ++x) {
       auto u = um * m, v = vm * m;
       if (u >= 0 && v >= 0 && u + v <= 1) {
-        color_attachment[y * width + x] = 0xff00ff;
+        auto p = 1 - u - v;
+        auto k = 1 / (p * z[0] + u * z[1] + v * z[2]);
+        float weight[3] {
+          p * z[0] * k,
+          u * z[1] * k,
+          v * z[2] * k,
+        };
+        invoke_fragment_shader(state, y * width + x, weight);
       }
       um += ac.y;
       vm -= ab.y;
@@ -266,4 +292,42 @@ void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 
     um = um_first - ac.x;
     vm = vm_first + ab.x;
   }
+}
+
+void graphics_pipeline_impl::invoke_fragment_shader(
+    render_pass::state &state,
+    std::uint32_t index, const float (&weight)[3]
+) {
+  {
+    auto it = fragment_attributes, ed = it + fragment_attributes_count;
+    for (; it != ed; ++it) {
+      auto location = it->location;
+      const std::byte *src[3] = {
+          vertex_shader_output[0][location],
+          vertex_shader_output[1][location],
+          vertex_shader_output[2][location],
+      };
+      it->interpolation(src, weight, fragment_shader_input[location]);
+    }
+  }
+  vec3 final_color;
+  {
+    /* auto it = color_attachments, ed = it + color_attachments_count;
+    auto out_it = fragment_shader_output;
+    for (; it != ed; ++it, ++out_it) {
+      
+    } */
+    
+    fragment_shader_output[0] = reinterpret_cast<std::byte *>(&final_color);
+  }
+  using const_input = const std::byte *(&)[1 << 8];
+  auto &compat_fragment_shader_input = const_cast<const_input>(fragment_shader_input);
+  fragment_shader(
+    descriptor_set_map, compat_fragment_shader_input,
+    fragment_shader_output, nullptr
+  );
+  auto r = std::uint32_t(0xff * final_color.x);
+  auto g = std::uint32_t(0xff * final_color.y);
+  auto b = std::uint32_t(0xff * final_color.z);
+  reinterpret_cast<std::uint32_t *>(state.m_frame_buffer->attachement(0))[index] = r << 16 | g << 8 | b;
 }

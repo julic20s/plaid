@@ -40,6 +40,8 @@ private:
 
   void rasterize_triangle(render_pass::state &, vec4 (&)[3]);
 
+  void invoke_fragment_shader(render_pass::state &, std::uint32_t index, const float (&weight)[3]);
+
 public:
 
   viewport viewport;
@@ -50,26 +52,29 @@ private:
   std::uint16_t vertex_input_per_vertex_attributes_count;
   /// 顶点着色器逐实例属性数量
   std::uint16_t vertex_input_per_instance_attributes_count;
+  /// 片元着色器属性数量
+  std::uint16_t fragment_attributes_count;
+  /// 颜色附件数量
+  std::uint16_t color_attachments_count;
+
+  /// 顶点着色器输出/片元着色器输入的堆内存指针
+  std::byte *stage_shader_variables_resource;
+  /// 顶点着色器输出/片元着色器输入堆内存的对齐字节数
+  std::align_val_t stage_shader_variables_resource_align;
+  /// 每个顶点着色器输出变量组和片元着色器输入的字节数，一共有4组，则
+  /// [vertex_shader_output_resource] 指向的缓冲区大小为
+  /// [vertex_shader_output_size] * 4;
+  std::uint32_t stage_shader_variables_size;
+
+  /// 保存描述符绑定点数据指针，顶点/片元着色器入口函数参数 0
+  const std::byte *descriptor_set_map[1 << 8];
 
   /// 顶点着色器入口函数
   shader_module::entry_function *vertex_shader;
-
-  /// 保存描述符绑定点数据指针，顶点着色器入口函数参数 0
-  const std::byte *descriptor_set_map[1 << 8];
   /// 顶点着色器入口函数参数 1
   const std::byte *vertex_shader_input[1 << 8];
   /// 顶点着色器入口函数参数 2
-  std::byte *vertex_shader_output[3][256];
-
-  /// 顶点着色器输出变量的堆内存指针
-  std::byte *vertex_shader_output_resource;
-  std::align_val_t vertex_shader_output_resource_align;
-
-  /// 每个顶点着色器输出变量组的字节数，一共有三组，则
-  /// [vertex_shader_output_resource] 指向的缓冲区大小为
-  /// [vertex_shader_output_size] * 3;
-  std::uint32_t vertex_shader_output_size;
-
+  std::byte *vertex_shader_output[3][1 << 8];
   struct vertex_attribute_detail {
     /// 属性的编号
     std::uint8_t location;
@@ -80,15 +85,25 @@ private:
     /// 数据偏移量
     std::uint32_t offset;
   };
-
   /// 保存顶点着色器逐顶点属性
   vertex_attribute_detail vertex_input_per_vertex_attributes[1 << 8];
-
   /// 保存顶点着色器逐实例属性
   vertex_attribute_detail vertex_input_per_instance_attributes[1 << 8];
 
   /// 片元着色器入口函数
   shader_module::entry_function *fragment_shader;
+  /// 片元着色器入口函数参数 1
+  std::byte *fragment_shader_input[1 << 8];
+  /// 片元着色器入口函数参数 2
+  std::byte *fragment_shader_output[1 << 8];
+  struct fragment_attribute_detail {
+    /// 属性的编号
+    std::uint8_t location;
+    /// 插值函数
+    shader_stage_variable_description::interpolation_function *interpolation;
+  };
+  /// 保存片元着色器属性
+  fragment_attribute_detail fragment_attributes[1 << 8];
 };
 
 } // namespace plaid
