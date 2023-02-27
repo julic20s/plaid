@@ -54,7 +54,7 @@ struct vec2 {
   return a.x * b.x + a.y * b.y;
 }
 
-[[nodiscard]] constexpr vec2 pow(vec2 a, float n) noexcept {
+[[nodiscard]] inline vec2 pow(vec2 a, float n) noexcept {
   return {std::pow(a.x, n), std::pow(a.y, n)};
 }
 
@@ -110,7 +110,7 @@ struct vec3 {
   return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-[[nodiscard]] constexpr vec3 pow(vec3 a, float n) noexcept {
+[[nodiscard]] inline vec3 pow(vec3 a, float n) noexcept {
   return {std::pow(a.x, n), std::pow(a.y, n), std::pow(a.z, n)};
 }
 
@@ -157,7 +157,7 @@ struct vec4 {
   return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
 
-[[nodiscard]] constexpr vec4 pow(vec4 a, float n) noexcept {
+[[nodiscard]] inline vec4 pow(vec4 a, float n) noexcept {
   return {std::pow(a.x, n), std::pow(a.y, n), std::pow(a.z, n), std::pow(a.w, n)};
 }
 
