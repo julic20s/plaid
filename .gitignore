@@ -1,5 +1,8 @@
 # Local config and scripts
 /.vscode
+/.vs
 /make.bat
+/CMakeSettings.json
 
 /.build
+/out
