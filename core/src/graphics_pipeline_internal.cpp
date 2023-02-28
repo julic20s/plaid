@@ -65,8 +65,7 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
     vertex_input_per_instance_attributes_count = per_inst_cnt;
   }
 
-  auto vs_output_cnt = vertex_shader_module->variables_meta.outputs_count;
-  if (vs_output_cnt) {
+  {
     // 为顶点着色器输出分配内存
 
     struct compare_weights {
@@ -74,6 +73,8 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
       std::uint32_t align;
       std::uint32_t size;
     } sorted_attrs[1 << 8];
+
+    auto vs_output_cnt = vertex_shader_module->variables_meta.outputs_count;
 
     {
       // 把类型信息放入待排序数组
@@ -97,22 +98,57 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
       );
     }
 
-    std::size_t output_size = 0;
+    
+    shader_stage_variable_description fragment_shader_output_desc[1 << 8];
+    auto fs_out_cnt = fragment_shader_module->variables_meta.outputs_count;
+    {
+      auto it = fragment_shader_module->variables_meta.outputs;
+      auto ed = it + fs_out_cnt;
+      auto out_it = fragment_shader_output_desc;
+      for (; it != ed; ++it, ++out_it) {
+        *out_it = *it;
+      }
+      using cmp_t = const shader_stage_variable_description;
+      std::sort(
+          fragment_shader_output_desc, fragment_shader_output_desc + fs_out_cnt,
+          [](cmp_t &a, cmp_t &b) { return a.align < b.align; }
+      );
+    }
+
+    std::size_t vertex_shader_output_size = 0;
+    
     for (auto it = sorted_attrs, ed = sorted_attrs + vs_output_cnt; it != ed; ++it) {
-      output_size = (output_size + it->align - 1) / it->align * it->align;
+      vertex_shader_output_size = (vertex_shader_output_size + it->align - 1) / it->align * it->align;
       // 先把成员偏移量放到记录数组内
-      auto offset_ptr = reinterpret_cast<std::byte *>(output_size);
+      auto offset_ptr = reinterpret_cast<std::byte *>(vertex_shader_output_size);
       for (auto &out : vertex_shader_output) {
         out[it->location] = offset_ptr;
       }
       fragment_shader_input[it->location] = offset_ptr;
-      output_size += it->size;
+      vertex_shader_output_size += it->size;
     }
 
+    std::size_t fragment_shader_output_size = 0;
+    for (auto it = fragment_shader_output_desc, ed = it + fs_out_cnt; it != ed; ++it) {
+      fragment_shader_output_size = (fragment_shader_output_size + it->align - 1) / it->align * it->align;
+      auto offset_ptr = reinterpret_cast<std::byte *>(fragment_shader_output_size);
+      fragment_shader_output[it->location] = offset_ptr;
+      fragment_shader_output_size += it->size;
+    }
+
+    // 片元着色器输出的内存对齐
+    auto fs_align = fragment_shader_output_desc[fs_out_cnt - 1].align;
+    // 片元着色器输出在这块堆内存的偏移
+    auto fs_offset = (vertex_shader_output_size * 4 + fs_align - 1) / fs_align * fs_align;
+    // 整个输出结构的内存对齐
+    auto tot_align = (std::max)(fs_align, sorted_attrs[vs_output_cnt - 1].align);
+    // 整个输出结构的字节大小
+    auto tot_size = fs_offset + fragment_shader_output_size;
+
     // 申请内存
-    stage_shader_variables_resource_align = std::align_val_t(sorted_attrs[vs_output_cnt - 1].align);
+    stage_shader_variables_resource_align = std::align_val_t(tot_align);
     stage_shader_variables_resource = reinterpret_cast<std::byte *>(
-        ::operator new(output_size * 4, stage_shader_variables_resource_align)
+        ::operator new(tot_size, stage_shader_variables_resource_align)
     );
 
     for (auto it = sorted_attrs, ed = sorted_attrs + vs_output_cnt; it != ed; ++it) {
@@ -120,9 +156,14 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
       auto offset = reinterpret_cast<std::ptrdiff_t>(stage_shader_variables_resource);
       for (auto &o : vertex_shader_output) {
         o[it->location] += offset;
-        offset += output_size;
+        offset += vertex_shader_output_size;
       }
       fragment_shader_input[it->location] += offset;
+    }
+
+    for (auto it = fragment_shader_output_desc, ed = it + fs_out_cnt; it != ed; ++it) {
+      auto offset = reinterpret_cast<std::ptrdiff_t>(stage_shader_variables_resource);
+      fragment_shader_output[it->location] += fs_offset + offset;
     }
   }
 
@@ -137,7 +178,6 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
       attr_it->interpolation = it->interpolation;
     }
   }
-  
 }
 
 graphics_pipeline_impl::~graphics_pipeline_impl() {
@@ -279,10 +319,10 @@ void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 
       if (u >= 0 && v >= 0 && u + v <= 1) {
         auto p = 1 - u - v;
         auto k = 1 / (p * z[0] + u * z[1] + v * z[2]);
-        float weight[3] {
-          p * z[0] * k,
-          u * z[1] * k,
-          v * z[2] * k,
+        float weight[3]{
+            p * z[0] * k,
+            u * z[1] * k,
+            v * z[2] * k,
         };
         invoke_fragment_shader(state, y * width + x, weight);
       }
@@ -310,24 +350,15 @@ void graphics_pipeline_impl::invoke_fragment_shader(
       it->interpolation(src, weight, fragment_shader_input[location]);
     }
   }
-  vec3 final_color;
-  {
-    /* auto it = color_attachments, ed = it + color_attachments_count;
-    auto out_it = fragment_shader_output;
-    for (; it != ed; ++it, ++out_it) {
-      
-    } */
-    
-    fragment_shader_output[0] = reinterpret_cast<std::byte *>(&final_color);
-  }
   using const_input = const std::byte *(&)[1 << 8];
   auto &compat_fragment_shader_input = const_cast<const_input>(fragment_shader_input);
   fragment_shader(
-    descriptor_set_map, compat_fragment_shader_input,
-    fragment_shader_output, nullptr
+      descriptor_set_map, compat_fragment_shader_input,
+      fragment_shader_output, nullptr
   );
-  auto r = std::uint32_t(0xff * final_color.x);
-  auto g = std::uint32_t(0xff * final_color.y);
-  auto b = std::uint32_t(0xff * final_color.z);
+  vec3 *final_color = reinterpret_cast<vec3 *>(fragment_shader_output[0]);
+  auto r = std::uint32_t(final_color->x * 0xff);
+  auto g = std::uint32_t(final_color->y * 0xff);
+  auto b = std::uint32_t(final_color->z * 0xff);
   reinterpret_cast<std::uint32_t *>(state.m_frame_buffer->attachement(0))[index] = r << 16 | g << 8 | b;
 }
