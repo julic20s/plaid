@@ -1,5 +1,7 @@
 # plaid
 
+[ENGLISH](README-EN.md)
+
 🚧🚧🚧 未完成 🚧🚧🚧
 
 plaid 是一个 C++ 软光栅渲染器。它由两个部分组成:
