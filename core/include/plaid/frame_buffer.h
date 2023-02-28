@@ -30,7 +30,7 @@ public:
 
   [[nodiscard]] std::uint32_t height() { return m_height; }
 
-  [[nodiscard]] std::byte *attachement(std::uint16_t id) {
+  [[nodiscard]] std::byte *attachement(std::uint8_t id) {
     return m_attachments[id];
   }
 
