@@ -54,6 +54,8 @@ private:
   std::uint16_t vertex_input_per_instance_attributes_count;
   /// 片元着色器属性数量
   std::uint16_t fragment_attributes_count;
+  /// 片元着色器输出数量
+  std::uint16_t fragment_out_count;
   /// 颜色附件数量
   std::uint16_t color_attachments_count;
 
@@ -96,6 +98,7 @@ private:
   std::byte *fragment_shader_input[1 << 8];
   /// 片元着色器入口函数参数 2
   std::byte *fragment_shader_output[1 << 8];
+
   struct fragment_attribute_detail {
     /// 属性的编号
     std::uint8_t location;
@@ -104,6 +107,21 @@ private:
   };
   /// 保存片元着色器属性
   fragment_attribute_detail fragment_attributes[1 << 8];
+  /// 保存所有片元着色器输出
+  struct fragment_shader_out_detail {
+    using attachment_transition_function = void(const std::byte *src, std::byte *dst);
+    /// 着色器输出变量编号
+    std::uint8_t location;
+    /// 目标附件编号
+    std::uint8_t attachment_id;
+    std::uint32_t attachment_stride;
+    /// 内存布局变换函数
+    attachment_transition_function *attachment_transition;
+  };
+  fragment_shader_out_detail fragment_shader_out_details[1 << 8];
+
+  static fragment_shader_out_detail::attachment_transition_function *
+  match_attachment_transition_function(format src, format dst);
 };
 
 } // namespace plaid

@@ -12,6 +12,7 @@
 #include <plaid/render_pass.h>
 #include <plaid/shader.h>
 
+#include <plaid/format.h>
 #include <plaid/utility.h>
 
 #endif // PLAID_H_

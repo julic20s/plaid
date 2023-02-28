@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "format.h"
+
 namespace plaid {
 class graphics_pipeline_impl;
 class graphics_pipeline;
@@ -13,7 +15,10 @@ class frame_buffer;
 
 namespace plaid {
 
-using attachment_reference = std::uint8_t;
+struct attachment_reference {
+  std::uint8_t id;
+  format format;
+};
 
 struct subpass_description {
   std::uint16_t input_attachments_count;
@@ -38,6 +43,10 @@ public:
 
   ~render_pass();
 
+  [[nodiscard]] const subpass_description &subpass(std::uint32_t index) const {
+    return m_subpasses[index];
+  }
+
   render_pass &operator=(render_pass &&mov) noexcept {
     m_subpasses_count = mov.m_subpasses_count;
     m_subpasses = mov.m_subpasses;
@@ -52,11 +61,8 @@ public:
   struct begin_info;
 
 private:
-
-  class subpass;
-
   std::uint32_t m_subpasses_count;
-  subpass *m_subpasses;
+  subpass_description *m_subpasses;
 };
 
 struct render_pass::begin_info {
@@ -87,6 +93,9 @@ public:
 
 private:
 
+  subpass_description *m_first_subpass;
+  subpass_description *m_current_subpass;
+  subpass_description *m_last_subpass;
   const std::byte *m_descriptor_set[1 << 8];
   const std::byte *m_vertex_buffer[1 << 8];
   frame_buffer *m_frame_buffer;

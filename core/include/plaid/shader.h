@@ -7,6 +7,8 @@
 
 #include <type_traits>
 
+#include "format.h"
+
 #ifdef PLAID_SHADER_DSL
 #include "vec.h"
 #endif
@@ -22,6 +24,8 @@ struct shader_stage_variable_description {
       std::byte *dst
   );
 
+  /// 属性的格式
+  format format;
   /// 属性的编号
   std::uint8_t location;
   /// 属性的字节大小
@@ -110,6 +114,10 @@ void shader::entry(
   }
   (shader.*Entry)();
 }
+
+// 匹配不同类型变量的 format
+template <class Ty>
+struct attribute_format_matcher;
 
 class dsl_shader_module : public shader_module {
 private:
@@ -244,7 +252,12 @@ struct shader::location {
       // 把自身属性填入数组
       auto &dst = m.variables_meta.inputs_count;
       const_cast<shader_stage_variable_description &>(m.variables_meta.inputs[dst++]) =
-          {Loc, sizeof(Ty), alignof(Ty), interpolation<Ty>};
+          {
+              .location = Loc,
+              .size = sizeof(Ty),
+              .align = alignof(Ty),
+              .interpolation = interpolation<Ty>,
+          };
     }
 
     [[nodiscard]] static inline const Ty &
@@ -261,7 +274,12 @@ struct shader::location {
       // 把自身属性填入数组
       auto &dst = m.variables_meta.outputs_count;
       const_cast<shader_stage_variable_description &>(m.variables_meta.outputs[dst++]) =
-          {Loc, sizeof(Ty), alignof(Ty)};
+          {
+              .format = attribute_format_matcher<Ty>::format,
+              .location = Loc,
+              .size = sizeof(Ty),
+              .align = alignof(Ty),
+          };
     }
 
     [[nodiscard]] static inline Ty &
@@ -285,6 +303,21 @@ struct shader::binding {
       return *reinterpret_cast<const Ty *>(shader->uniform[Bd]);
     }
   };
+};
+
+template <>
+struct attribute_format_matcher<vec2> {
+  static constexpr auto format = format::rg3232_float;
+};
+
+template <>
+struct attribute_format_matcher<vec3> {
+  static constexpr auto format = format::rgb323232_float;
+};
+
+template <>
+struct attribute_format_matcher<vec4> {
+  static constexpr auto format = format::rgba32323232_float;
 };
 
 #endif

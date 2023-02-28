@@ -17,10 +17,10 @@ plaid::frame_buffer viewer_frame_buffer;
 
 /// 初始化渲染通道
 void initialize_render_pass() {
-  plaid::attachment_reference color_attachment = 0;
-  plaid::subpass_description subpass {
-    .color_attachments_count = 1,
-    .color_attachments = &color_attachment,
+  plaid::attachment_reference color_attachment{0, plaid::format::rgb888_integer};
+  plaid::subpass_description subpass{
+      .color_attachments_count = 1,
+      .color_attachments = &color_attachment,
   };
 
   viewer_render_pass = plaid::render_pass(1, &subpass);
@@ -62,9 +62,10 @@ void initialize_pipeline() {
           .topology = plaid::primitive_topology::triangle_strip,
       },
       .shader_stage = {
-          .vertex_shader = &vert,
-          .fragment_shader = &frag,
+          .vertex_shader = vert,
+          .fragment_shader = frag,
       },
+      .render_pass = viewer_render_pass,
   };
 
   viewer_pipeline = plaid::graphics_pipeline(create_info);
@@ -77,7 +78,7 @@ void initialize() {
 
 void recreate_frame_buffer(std::uint32_t *bytes, std::uint32_t width, std::uint32_t height) {
   viewer_frame_buffer = plaid::frame_buffer(
-    1, reinterpret_cast<std::byte **>(&bytes), width, height
+      1, reinterpret_cast<std::byte **>(&bytes), width, height
   );
 }
 
@@ -87,9 +88,9 @@ void render() {
       {{-.5, .5}, {0, 1, 0}},
       {{.5f, .5}, {0, 0, 1}},
   };
-  plaid::render_pass::begin_info begin_info {
-    .render_pass = viewer_render_pass,
-    .frame_buffer = viewer_frame_buffer,
+  plaid::render_pass::begin_info begin_info{
+      .render_pass = viewer_render_pass,
+      .frame_buffer = viewer_frame_buffer,
   };
   plaid::render_pass::state state(begin_info);
   state.bind_vertex_buffer(0, reinterpret_cast<const std::byte *>(triangle));

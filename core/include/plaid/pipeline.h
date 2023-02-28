@@ -95,8 +95,8 @@ public:
 
     /// 着色器规格
     struct shader_stages {
-      const shader_module *vertex_shader;
-      const shader_module *fragment_shader;
+      const shader_module &vertex_shader;
+      const shader_module &fragment_shader;
     };
 
     /// 光栅化参数设置
@@ -120,7 +120,7 @@ public:
     shader_stages shader_stage;
     rasterization_state rasterization_state;
     viewport_state viewport_state;
-    render_pass render_pass;
+    render_pass &render_pass;
     std::uint8_t subpass;
   };
 

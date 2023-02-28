@@ -20,12 +20,12 @@ graphics_pipeline::~graphics_pipeline() {
 graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_info &info) {
   vertex_assembly = info.input_assembly_state.topology;
 
-  auto vertex_shader_module = info.shader_stage.vertex_shader;
-  auto fragment_shader_module = info.shader_stage.fragment_shader;
+  auto &vertex_shader_module = info.shader_stage.vertex_shader;
+  auto &fragment_shader_module = info.shader_stage.fragment_shader;
 
   // 获取顶点着色器入口函数
-  vertex_shader = vertex_shader_module->entry;
-  fragment_shader = fragment_shader_module->entry;
+  vertex_shader = vertex_shader_module.entry;
+  fragment_shader = fragment_shader_module.entry;
 
   // 把绑定点描述信息放入稀疏表方便快速访问
   const vertex_input_binding_description *vert_in_binding_desc_map[1 << 8];
@@ -74,11 +74,11 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
       std::uint32_t size;
     } sorted_attrs[1 << 8];
 
-    auto vs_output_cnt = vertex_shader_module->variables_meta.outputs_count;
+    auto vs_output_cnt = vertex_shader_module.variables_meta.outputs_count;
 
     {
       // 把类型信息放入待排序数组
-      auto it = vertex_shader_module->variables_meta.outputs;
+      auto it = vertex_shader_module.variables_meta.outputs;
       auto ed = it + vs_output_cnt;
       for (auto dst = sorted_attrs; it != ed; ++it, ++dst) {
         *dst = {
@@ -100,9 +100,9 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
 
     
     shader_stage_variable_description fragment_shader_output_desc[1 << 8];
-    auto fs_out_cnt = fragment_shader_module->variables_meta.outputs_count;
+    auto fs_out_cnt = fragment_shader_module.variables_meta.outputs_count;
     {
-      auto it = fragment_shader_module->variables_meta.outputs;
+      auto it = fragment_shader_module.variables_meta.outputs;
       auto ed = it + fs_out_cnt;
       auto out_it = fragment_shader_output_desc;
       for (; it != ed; ++it, ++out_it) {
@@ -169,8 +169,8 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
 
   {
     // 把片元着色器的输入结构保存下来
-    fragment_attributes_count = fragment_shader_module->variables_meta.inputs_count;
-    auto it = fragment_shader_module->variables_meta.inputs;
+    fragment_attributes_count = fragment_shader_module.variables_meta.inputs_count;
+    auto it = fragment_shader_module.variables_meta.inputs;
     auto ed = it + fragment_attributes_count;
     auto attr_it = fragment_attributes;
     for (; it != ed; ++it) {
@@ -178,6 +178,41 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
       attr_it->interpolation = it->interpolation;
     }
   }
+
+  {
+    auto &subpass = info.render_pass.subpass(info.subpass);
+    fragment_out_count = fragment_shader_module.variables_meta.outputs_count;
+    auto it = fragment_shader_module.variables_meta.outputs;
+    auto ed = it + fragment_out_count;
+    auto out_it = fragment_shader_out_details;
+    for (; it != ed; ++it, ++out_it) {
+      auto &attachment = subpass.color_attachments[it->location];
+      out_it->location = it->location;
+      out_it->attachment_id = attachment.id;
+      out_it->attachment_stride = format_size(attachment.format);
+      out_it->attachment_transition = match_attachment_transition_function(it->format, attachment.format);
+    }
+  }
+}
+
+void rgb323232_float_to_rgb888_integer(
+    const std::byte *src, std::byte *dst
+) {
+  auto final_color = reinterpret_cast<const vec3 *>(src);
+  auto r = std::uint32_t(final_color->x * 0xff);
+  auto g = std::uint32_t(final_color->y * 0xff);
+  auto b = std::uint32_t(final_color->z * 0xff);
+  *reinterpret_cast<std::uint32_t *>(dst) = r << 16 | g << 8 | b;
+}
+
+graphics_pipeline_impl::fragment_shader_out_detail::attachment_transition_function *
+graphics_pipeline_impl::match_attachment_transition_function(format src, format dst) {
+  if (src == format::rgb323232_float) {
+    if (dst == format::rgb888_integer) {
+      return rgb323232_float_to_rgb888_integer;
+    }
+  }
+  return nullptr;
 }
 
 graphics_pipeline_impl::~graphics_pipeline_impl() {
@@ -356,9 +391,11 @@ void graphics_pipeline_impl::invoke_fragment_shader(
       descriptor_set_map, compat_fragment_shader_input,
       fragment_shader_output, nullptr
   );
-  vec3 *final_color = reinterpret_cast<vec3 *>(fragment_shader_output[0]);
-  auto r = std::uint32_t(final_color->x * 0xff);
-  auto g = std::uint32_t(final_color->y * 0xff);
-  auto b = std::uint32_t(final_color->z * 0xff);
-  reinterpret_cast<std::uint32_t *>(state.m_frame_buffer->attachement(0))[index] = r << 16 | g << 8 | b;
+
+  auto frame_buffer = state.m_frame_buffer;
+  auto it = fragment_shader_out_details, ed = it + fragment_out_count;
+  for (; it != ed; ++it) {
+    auto ptr = frame_buffer->attachement(it->attachment_id) + index * it->attachment_stride;
+    it->attachment_transition(fragment_shader_output[it->location], ptr);
+  }
 }
