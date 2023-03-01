@@ -8,12 +8,12 @@
 using namespace plaid;
 
 graphics_pipeline::graphics_pipeline(const graphics_pipeline::create_info &info) {
-  ptr = new graphics_pipeline_impl(info);
+  m_pointer = new graphics_pipeline_impl(info);
 }
 
 graphics_pipeline::~graphics_pipeline() {
-  if (ptr) {
-    delete ptr;
+  if (m_pointer) {
+    delete m_pointer;
   }
 }
 

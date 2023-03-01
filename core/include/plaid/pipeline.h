@@ -124,29 +124,29 @@ public:
     std::uint8_t subpass;
   };
 
-  graphics_pipeline() : ptr(nullptr) {}
+  graphics_pipeline() : m_pointer(nullptr) {}
 
   explicit graphics_pipeline(const create_info &);
 
   graphics_pipeline(const graphics_pipeline &) = delete;
 
   graphics_pipeline(graphics_pipeline &&mov) noexcept {
-    ptr = mov.ptr;
-    mov.ptr = nullptr;
+    m_pointer = mov.m_pointer;
+    mov.m_pointer = nullptr;
   }
 
   ~graphics_pipeline();
 
   graphics_pipeline &operator=(graphics_pipeline &&mov) noexcept {
-    ptr = mov.ptr;
-    mov.ptr = nullptr;
+    m_pointer = mov.m_pointer;
+    mov.m_pointer = nullptr;
     return *this;
   }
 
-  [[nodiscard]] inline operator graphics_pipeline_impl *() noexcept { return ptr; }
+  [[nodiscard]] inline operator graphics_pipeline_impl *() noexcept { return m_pointer; }
 
 private:
-  graphics_pipeline_impl *ptr;
+  graphics_pipeline_impl *m_pointer;
 };
 
 } // namespace plaid
