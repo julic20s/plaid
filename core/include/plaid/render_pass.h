@@ -6,11 +6,10 @@
 #include <cstdint>
 
 #include "format.h"
+#include "frame_buffer.h"
 
 namespace plaid {
 class graphics_pipeline_impl;
-class graphics_pipeline;
-class frame_buffer;
 } // namespace plaid
 
 namespace plaid {
