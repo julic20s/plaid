@@ -29,6 +29,13 @@ render_pass::render_pass(std::uint32_t subpasses_count, const subpass_descriptio
   m_subpasses = copied_arr;
 }
 
+render_pass::render_pass(render_pass &&mov) noexcept {
+  m_subpasses_count = mov.m_subpasses_count;
+  m_subpasses = mov.m_subpasses;
+  mov.m_subpasses_count = 0;
+  mov.m_subpasses = nullptr;
+}
+
 render_pass::~render_pass() {
   auto it = m_subpasses, ed = it + m_subpasses_count;
   for (; it != ed; ++it) {
@@ -45,6 +52,10 @@ render_pass::~render_pass() {
   if (m_subpasses) {
     delete [] m_subpasses;
   }
+}
+
+render_pass &render_pass::operator=(render_pass &&mov) {
+  return *new (this) render_pass(static_cast<render_pass &&>(mov));
 }
 
 render_pass::state::state(const begin_info &begin) {

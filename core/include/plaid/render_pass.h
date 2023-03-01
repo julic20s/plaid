@@ -37,9 +37,7 @@ public:
 
   render_pass(const render_pass &) = delete;
 
-  render_pass(render_pass &&mov) noexcept {
-    *this = static_cast<render_pass &&>(mov);
-  }
+  render_pass(render_pass &&mov) noexcept;
 
   ~render_pass();
 
@@ -47,13 +45,7 @@ public:
     return m_subpasses[index];
   }
 
-  render_pass &operator=(render_pass &&mov) noexcept {
-    m_subpasses_count = mov.m_subpasses_count;
-    m_subpasses = mov.m_subpasses;
-    mov.m_subpasses_count = 0;
-    mov.m_subpasses = nullptr;
-    return *this;
-  }
+  render_pass &operator=(render_pass &&mov);
 
   /// 记录渲染通道状态
   class state;
