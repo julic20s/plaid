@@ -7,7 +7,7 @@
 
 /// 顶点数据
 struct vertex {
-  plaid::vec2 position;
+  plaid::vec3 position;
   plaid::vec3 color;
 };
 
@@ -84,17 +84,20 @@ void recreate_frame_buffer(std::uint32_t *bytes, std::uint32_t width, std::uint3
 
 void render() {
   static const vertex triangle[] = {
-      {{0, -.5}, {1, 0, 0}},
-      {{-.5, .5}, {0, 1, 0}},
-      {{.5f, .5}, {0, 0, 1}},
+      {{-.5, .5, 0.5}, {1, 0, 0}},
+      {{-.5, -.5, 0.5}, {0, 1, 0}},
+      {{.5f, .5, 0.5}, {0, 0, 1}},
+      {{.5f, -.5f, 0.5f}, {1, 1, 1}},
   };
   plaid::render_pass::begin_info begin_info{
       .render_pass = viewer_render_pass,
       .frame_buffer = viewer_frame_buffer,
   };
+  float gamma_inv = 1 / 2.2f;
   plaid::render_pass::state state(begin_info);
+  state.bind_descriptor_set(0, reinterpret_cast<std::byte *>(&gamma_inv));
   state.bind_vertex_buffer(0, reinterpret_cast<const std::byte *>(triangle));
-  state.draw(viewer_pipeline, 3, 1, 0, 0);
+  state.draw(viewer_pipeline, 4, 1, 0, 0);
   state.next_subpass();
 }
 

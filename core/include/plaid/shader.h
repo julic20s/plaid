@@ -293,6 +293,8 @@ template <std::uint8_t Bd>
 struct shader::binding {
   template <class Ty>
   struct uniform {
+    uniform() = default;
+
     uniform(dsl_shader_module &m) noexcept {
       // 显然着色器常量是由外部提供的，但为了保证能够让上面的 constructor 类
       // 能够正常构造，特添加这个函数
