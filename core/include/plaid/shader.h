@@ -10,6 +10,7 @@
 #include "format.h"
 
 #ifdef PLAID_SHADER_DSL
+#include "mat.h"
 #include "vec.h"
 #endif
 

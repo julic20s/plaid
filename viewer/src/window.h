@@ -39,6 +39,8 @@ public:
 
   [[nodiscard]] std::uint32_t *surface();
 
+  void clear_surface(std::uint32_t value);
+
   void on_surface_recreate(std::function<void(window &, std::uint32_t width, std::uint32_t height)>);
 
   void commit();

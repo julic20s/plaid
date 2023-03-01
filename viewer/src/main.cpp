@@ -84,20 +84,29 @@ void recreate_frame_buffer(std::uint32_t *bytes, std::uint32_t width, std::uint3
 
 void render() {
   static const vertex triangle[] = {
-      {{-.5, .5, 0.5}, {1, 0, 0}},
-      {{-.5, -.5, 0.5}, {0, 1, 0}},
-      {{.5f, .5, 0.5}, {0, 0, 1}},
-      {{.5f, -.5f, 0.5f}, {1, 1, 1}},
+      {{-.5, .5, .75}, {1, 0, 0}},
+      {{-.5, -.5, .75}, {0, 1, 0}},
+      {{.5, .5, .75}, {0, 0, 1}},
+      {{.5, -.5, .75}, {1, 1, 1}},
+      {{.5, .5, .25}, {0, 0, 1}},
+      {{.5, -.5, .25}, {1, 1, 1}},
+      {{-.5, .5, .25}, {1, 0, 0}},
   };
   plaid::render_pass::begin_info begin_info{
       .render_pass = viewer_render_pass,
       .frame_buffer = viewer_frame_buffer,
   };
-  float gamma_inv = 1 / 2.2f;
+  auto x = clock() / 500.f;
+  plaid::mat4x4 rotate {{
+    {cosf(x), sinf(x), 0, 0},
+    {-sinf(x), cosf(x), 0, 0},
+    {0, 0, 1, 0},
+    {0, 0, 0, 1},
+  }};
   plaid::render_pass::state state(begin_info);
-  state.bind_descriptor_set(0, reinterpret_cast<std::byte *>(&gamma_inv));
+  state.bind_descriptor_set(0, reinterpret_cast<std::byte *>(&rotate));
   state.bind_vertex_buffer(0, reinterpret_cast<const std::byte *>(triangle));
-  state.draw(viewer_pipeline, 4, 1, 0, 0);
+  state.draw(viewer_pipeline, 7, 1, 0, 0);
   state.next_subpass();
 }
 
@@ -132,7 +141,9 @@ int main(int argc, const char *argv[]) {
 
   window.show();
   [[likely]] while (!window.should_close()) {
-    /// 渲染帧
+    // TODO: 使用 clear_value 在管道中进行操作，而不是在管道外部
+    window.clear_surface(0);
+    // 渲染帧
     render();
     window.commit();
     print_fps();

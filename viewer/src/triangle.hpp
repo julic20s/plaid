@@ -3,6 +3,9 @@
 namespace triangle {
 
 struct vert : plaid::vertex_shader {
+
+  binding<0>::uniform<plaid::mat4x4> mvp;
+
   location<0>::in<plaid::vec3> position;
   location<1>::in<plaid::vec3> color;
 
@@ -10,20 +13,19 @@ struct vert : plaid::vertex_shader {
 
   void main() {
     auto pos = position.get(this);
-    *gl_position = {pos.x, pos.y, pos.z, 1};
+    *gl_position = plaid::vec4{pos.x, pos.y, pos.z, 1};
+    
     frag_color.get(this) = color.get(this);
   }
 };
 
 struct frag : plaid::fragment_shader {
 
-  binding<0>::uniform<float> gamma_inv;
-
   location<0>::in<plaid::vec3> frag_color;
   location<0>::out<plaid::vec3> final_color;
 
   void main() {
-    final_color.get(this) = pow(frag_color.get(this), gamma_inv.get(this));
+    final_color.get(this) = pow(frag_color.get(this), 1 / 2.2f);
   }
 };
 

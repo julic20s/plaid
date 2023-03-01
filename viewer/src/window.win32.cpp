@@ -170,6 +170,12 @@ std::uint32_t *window::surface() {
   return state->surface;
 }
 
+void window::clear_surface(std::uint32_t value) {
+  for (auto it = state->surface, ed = it + state->width * state->height; it != ed; ++it) {
+    *it = value;
+  }
+}
+
 void window::commit() {
   auto hdc = GetDC(state->hwnd);
   BitBlt(hdc, 0, 0, state->width, state->height, state->buffer_dc, 0, 0, SRCCOPY);

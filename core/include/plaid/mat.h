@@ -16,7 +16,6 @@ public:
   [[nodiscard]] constexpr const vec4 &
   operator[](std::uint8_t i) const noexcept { return r[i]; }
 
-private:
   vec4 r[4];
 };
 
@@ -54,6 +53,16 @@ operator*(const mat4x4 &a, const mat4x4 &b) noexcept {
     }
   }
   return res;
+}
+
+[[nodiscard]] constexpr vec4
+operator*(const mat4x4 &a, vec4 b) noexcept {
+  return {
+      a[0][0] * b.x + a[0][1] * b.y + a[0][2] * b.z + a[0][3] * b.w,
+      a[1][0] * b.x + a[1][1] * b.y + a[1][2] * b.z + a[1][3] * b.w,
+      a[2][0] * b.x + a[2][1] * b.y + a[2][2] * b.z + a[2][3] * b.w,
+      a[3][0] * b.x + a[3][1] * b.y + a[3][2] * b.z + a[3][3] * b.w,
+  };
 }
 
 } // namespace plaid
