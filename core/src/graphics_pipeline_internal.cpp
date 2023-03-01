@@ -260,7 +260,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
     for (auto i : indices) {
       // 顶点编号刚好对应数据位置，而下面的 while 循环则不能如此
       obtain_next_vertex_attribute(vertex_buffer, i);
-      invoke_vertex_shader(i, clip_coords[i]);
+      invoke_vertex_shader(state.m_descriptor_set, vertex_shader_output[i], clip_coords[i]);
     }
 
     // TODO：这里还需要确定顶点顺序，使得面剔除能够正确执行
@@ -272,7 +272,11 @@ void graphics_pipeline_impl::draw_triangle_strip(
       indices[ping_pong] += 3;
       if (indices[ping_pong] == last_vert) break;
       obtain_next_vertex_attribute(vertex_buffer, indices[ping_pong]);
-      invoke_vertex_shader(ping_pong, clip_coords[ping_pong]);
+      invoke_vertex_shader(
+        state.m_descriptor_set,
+        vertex_shader_output[ping_pong],
+        clip_coords[ping_pong]
+      );
       ping_pong = (ping_pong + 1) % 3;
     }
   }
@@ -300,10 +304,14 @@ void graphics_pipeline_impl::obtain_next_instance_attributes(
   }
 }
 
-void graphics_pipeline_impl::invoke_vertex_shader(std::uint8_t dst, vec4 &clip_coord) {
+void graphics_pipeline_impl::invoke_vertex_shader(
+  const std::byte *(&descriptor_set)[1 << 8],
+  std::byte *(&output)[1 << 8],
+  vec4 &clip_coord
+) {
   // 只有一个内置变量，即裁剪空间坐标
   auto mutable_builtin = reinterpret_cast<std::byte *>(&clip_coord);
-  vertex_shader(descriptor_set_map, vertex_shader_input, vertex_shader_output[dst], &mutable_builtin);
+  vertex_shader(descriptor_set, vertex_shader_input, output, &mutable_builtin);
 }
 
 void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 (&clip_coord)[3]) {
@@ -388,7 +396,7 @@ void graphics_pipeline_impl::invoke_fragment_shader(
   using const_input = const std::byte *(&)[1 << 8];
   auto &compat_fragment_shader_input = const_cast<const_input>(fragment_shader_input);
   fragment_shader(
-      descriptor_set_map, compat_fragment_shader_input,
+      state.m_descriptor_set, compat_fragment_shader_input,
       fragment_shader_output, nullptr
   );
 

@@ -72,6 +72,10 @@ void render_pass::state::next_subpass() {
   }
 }
 
+void render_pass::state::bind_descriptor_set(std::uint8_t binding, const std::byte *buf) {
+  m_descriptor_set[binding] = buf;
+}
+
 void render_pass::state::bind_vertex_buffer(std::uint8_t binding, const std::byte *buf) {
   m_vertex_buffer[binding] = buf;
 }

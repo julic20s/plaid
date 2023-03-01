@@ -36,7 +36,7 @@ private:
   void obtain_next_instance_attributes(const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t inst_id);
 
   /// 执行顶点着色器
-  void invoke_vertex_shader(std::uint8_t dst, vec4 &);
+  void invoke_vertex_shader(const std::byte *(&descriptor_set)[1 << 8], std::byte *(&output)[1 << 8], vec4 &clip_coord);
 
   void rasterize_triangle(render_pass::state &, vec4 (&)[3]);
 
@@ -67,9 +67,6 @@ private:
   /// [vertex_shader_output_resource] 指向的缓冲区大小为
   /// [vertex_shader_output_size] * 4;
   std::uint32_t stage_shader_variables_size;
-
-  /// 保存描述符绑定点数据指针，顶点/片元着色器入口函数参数 0
-  const std::byte *descriptor_set_map[1 << 8];
 
   /// 顶点着色器入口函数
   shader_module::entry_function *vertex_shader;
