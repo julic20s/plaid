@@ -1,44 +1,32 @@
+#include <algorithm>
+
 #include "graphics_pipeline_internal.h"
 
 using namespace plaid;
 
 render_pass::render_pass(std::uint32_t subpasses_count, const subpass_description *subpasses) {
+  subpass_description *copied_arr = nullptr;
   if (subpasses_count) {
-    m_subpasses_count = subpasses_count;
-    m_subpasses = new subpass_description[subpasses_count];
-    auto it = m_subpasses, ed = it + subpasses_count;
-    for (; it != ed; ++it, ++subpasses) {
+    copied_arr = new subpass_description[subpasses_count];
+    for (auto it = copied_arr, ed = it + subpasses_count; it != ed; ++it, ++subpasses) {
       *it = *subpasses;
       if (it->input_attachments_count) {
         auto dst = new attachment_reference[it->input_attachments_count];
+        std::copy_n(subpasses->input_attachments, it->input_attachments_count, dst);
         it->input_attachments = dst;
-        auto dst_it = dst, dst_ed = dst_it + it->input_attachments_count;
-        auto src_it = subpasses->input_attachments;
-        for (; dst_it != dst_ed; ++dst_it) {
-          *dst_it = *src_it;
-        }
-      } else {
-        it->input_attachments = nullptr;
       }
       if (it->color_attachments_count) {
         auto dst = new attachment_reference[it->color_attachments_count];
+        std::copy_n(subpasses->color_attachments, it->color_attachments_count, dst);
         it->color_attachments = dst;
-        auto dst_it = dst, dst_ed = dst_it + it->color_attachments_count;
-        auto src_it = subpasses->color_attachments;
-        for (; dst_it != dst_ed; ++dst_it) {
-          *dst_it = *src_it;
-        }
-      } else {
-        it->color_attachments = nullptr;
       }
       if (it->depth_stencil_attachment) {
         it->depth_stencil_attachment = new attachment_reference(*it->depth_stencil_attachment);
       }
     }
-  } else {
-    m_subpasses_count = 0;
-    m_subpasses = nullptr;
   }
+  m_subpasses_count = subpasses_count;
+  m_subpasses = copied_arr;
 }
 
 render_pass::~render_pass() {
