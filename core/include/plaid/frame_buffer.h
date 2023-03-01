@@ -5,15 +5,19 @@
 
 namespace plaid {
 
+/// 记录一个帧缓冲区，一个帧缓冲区可以包含多个附件
 struct frame_buffer {
 public:
+
+  using attachment = std::byte *;
 
   frame_buffer() : frame_buffer(0, nullptr, 0, 0) {}
 
   explicit frame_buffer(
       std::uint16_t attachments_count,
-      std::byte **attachments,
-      std::uint32_t width, std::uint32_t height
+      const attachment attachments[],
+      std::uint32_t width,
+      std::uint32_t height
   );
 
   frame_buffer(const frame_buffer &);
@@ -37,7 +41,7 @@ public:
 private:
 
   std::uint16_t m_attachments_count;
-  std::byte **m_attachments;
+  const attachment *m_attachments;
   std::uint32_t m_width;
   std::uint32_t m_height;
 };
