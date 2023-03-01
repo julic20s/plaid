@@ -30,13 +30,11 @@ public:
 
   frame_buffer &operator=(frame_buffer &&);
 
-  [[nodiscard]] std::uint32_t width() { return m_width; }
+  [[nodiscard]] inline std::uint32_t width() { return m_width; }
 
-  [[nodiscard]] std::uint32_t height() { return m_height; }
+  [[nodiscard]] inline std::uint32_t height() { return m_height; }
 
-  [[nodiscard]] std::byte *attachement(std::uint8_t id) {
-    return m_attachments[id];
-  }
+  [[nodiscard]] inline std::byte *attachement(std::uint8_t id) { return m_attachments[id]; }
 
 private:
 
