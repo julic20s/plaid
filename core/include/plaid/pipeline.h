@@ -79,50 +79,7 @@ class graphics_pipeline_impl;
 /// 图形管道句柄
 class graphics_pipeline {
 public:
-  struct create_info {
-    /// 顶点输入缓冲区规格
-    struct vertex_input_state {
-      std::uint16_t bindings_count;
-      std::uint16_t attributes_count;
-      const vertex_input_binding_description *bindings;
-      const vertex_input_attribute_description *attributes;
-    };
-
-    /// 顶点输入装配模式
-    struct input_assembly_state {
-      primitive_topology topology;
-    };
-
-    /// 着色器规格
-    struct shader_stages {
-      const shader_module &vertex_shader;
-      const shader_module &fragment_shader;
-    };
-
-    /// 光栅化参数设置
-    struct rasterization_state {
-      bool depth_clamp;
-      bool rasterizer_discard;
-      polygon_mode polygon_mode;
-      cull_mode cull_mode;
-    };
-
-    /// 视口状态
-    struct viewport_state {
-      std::uint16_t viewports_count;
-      std::uint16_t scissors_count;
-      const viewport *viewports;
-      const rect2d *scissors;
-    };
-
-    vertex_input_state vertex_input_state;
-    input_assembly_state input_assembly_state;
-    shader_stages shader_stage;
-    rasterization_state rasterization_state;
-    viewport_state viewport_state;
-    render_pass &render_pass;
-    std::uint8_t subpass;
-  };
+  struct create_info;
 
   graphics_pipeline() : m_pointer(nullptr) {}
 
@@ -147,6 +104,51 @@ public:
 
 private:
   graphics_pipeline_impl *m_pointer;
+};
+
+struct graphics_pipeline::create_info {
+  /// 顶点输入缓冲区规格
+  struct vertex_input_state {
+    std::uint16_t bindings_count;
+    std::uint16_t attributes_count;
+    const vertex_input_binding_description *bindings;
+    const vertex_input_attribute_description *attributes;
+  };
+
+  /// 顶点输入装配模式
+  struct input_assembly_state {
+    primitive_topology topology;
+  };
+
+  /// 着色器规格
+  struct shader_stages {
+    const shader_module &vertex_shader;
+    const shader_module &fragment_shader;
+  };
+
+  /// 光栅化参数设置
+  struct rasterization_state {
+    bool depth_clamp;
+    bool rasterizer_discard;
+    polygon_mode polygon_mode;
+    cull_mode cull_mode;
+  };
+
+  /// 视口状态
+  struct viewport_state {
+    std::uint16_t viewports_count;
+    std::uint16_t scissors_count;
+    const viewport *viewports;
+    const rect2d *scissors;
+  };
+
+  vertex_input_state vertex_input_state;
+  input_assembly_state input_assembly_state;
+  shader_stages shader_stage;
+  rasterization_state rasterization_state;
+  viewport_state viewport_state;
+  render_pass &render_pass;
+  std::uint8_t subpass;
 };
 
 } // namespace plaid
