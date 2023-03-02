@@ -13,7 +13,7 @@ struct vert : plaid::vertex_shader {
 
   void main() {
     auto pos = position.get(this);
-    *gl_position = plaid::vec4{pos.x, pos.y, pos.z, 1};
+    *gl_position = mvp.get(this) * plaid::vec4{pos.x, pos.y, pos.z, 1};
     
     frag_color.get(this) = color.get(this);
   }

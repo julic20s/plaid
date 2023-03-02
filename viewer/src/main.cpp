@@ -1,5 +1,7 @@
 #include <ctime>
 
+#include <memory>
+
 #include <plaid.h>
 
 #include "triangle.hpp"
@@ -14,13 +16,17 @@ struct vertex {
 plaid::render_pass viewer_render_pass;
 plaid::graphics_pipeline viewer_pipeline;
 plaid::frame_buffer viewer_frame_buffer;
+std::unique_ptr<float[]> depth_buffer;
+std::uint32_t size;
 
 /// 初始化渲染通道
 void initialize_render_pass() {
   plaid::attachment_reference color_attachment{0, plaid::format::rgb888_integer};
+  plaid::attachment_reference depth_stencil_attachment{1};
   plaid::subpass_description subpass{
       .color_attachments_count = 1,
       .color_attachments = &color_attachment,
+      .depth_stencil_attachment = &depth_stencil_attachment,
   };
 
   viewer_render_pass = plaid::render_pass(1, &subpass);
@@ -76,37 +82,45 @@ void initialize() {
   initialize_pipeline();
 }
 
-void recreate_frame_buffer(std::uint32_t *bytes, std::uint32_t width, std::uint32_t height) {
+void recreate_frame_buffer(std::uint32_t *color, std::uint32_t width, std::uint32_t height) {
+  depth_buffer = std::make_unique<float[]>(size = width * height);
+  std::byte *attachements[] = {
+      reinterpret_cast<std::byte *>(color),
+      reinterpret_cast<std::byte *>(depth_buffer.get()),
+  };
   viewer_frame_buffer = plaid::frame_buffer(
-      1, reinterpret_cast<std::byte **>(&bytes), width, height
+      2, attachements, width, height
   );
 }
 
 void render() {
   static const vertex triangle[] = {
-      {{-.5, .5, .75}, {1, 0, 0}},
-      {{-.5, -.5, .75}, {0, 1, 0}},
-      {{.5, .5, .75}, {0, 0, 1}},
-      {{.5, -.5, .75}, {1, 1, 1}},
-      {{.5, .5, .25}, {0, 0, 1}},
-      {{.5, -.5, .25}, {1, 1, 1}},
-      {{-.5, .5, .25}, {1, 0, 0}},
+      {{-.5, .5, .75}, {1, 0, 0}}, // 0
+      {{-.5, -.5, .75}, {0, 1, 0}}, // 1
+      {{.5, .5, .75}, {0, 0, 1}}, // 2
+      {{.5, -.5, .75}, {1, 1, 1}}, // 3
+      {{.5, .5, .25}, {0, 0, 1}}, // 4
+      {{.5, -.5, .25}, {1, 1, 1}}, // 5
   };
   plaid::render_pass::begin_info begin_info{
       .render_pass = viewer_render_pass,
       .frame_buffer = viewer_frame_buffer,
   };
-  auto x = clock() / 500.f;
-  plaid::mat4x4 rotate {{
-    {cosf(x), sinf(x), 0, 0},
-    {-sinf(x), cosf(x), 0, 0},
-    {0, 0, 1, 0},
-    {0, 0, 0, 1},
+  for (auto it = depth_buffer.get(), ed = it + size; it != ed; ++it) {
+    *it = 0;
+  }
+
+  auto x = clock() / 1000.f;
+  plaid::mat4x4 rotate{{
+      {cosf(x), 0, sinf(x), 0},
+      {0, 1, 0, 0},
+      {-sinf(x), 0, cosf(x), 0},
+      {0, 0, 0, 1},
   }};
   plaid::render_pass::state state(begin_info);
   state.bind_descriptor_set(0, reinterpret_cast<std::byte *>(&rotate));
   state.bind_vertex_buffer(0, reinterpret_cast<const std::byte *>(triangle));
-  state.draw(viewer_pipeline, 7, 1, 0, 0);
+  state.draw(viewer_pipeline, 6, 1, 0, 0);
   state.next_subpass();
 }
 

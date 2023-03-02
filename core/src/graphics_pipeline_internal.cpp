@@ -355,6 +355,10 @@ void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 
   auto um = cross(ac, pa);
   auto vm = cross(pa, ab);
 
+  auto depth_stencil_attachment = state.m_frame_buffer->attachement(
+    state.m_current_subpass->depth_stencil_attachment->id
+  );
+
   for (auto y = t; y != b; ++y) {
     auto um_first = um, vm_first = vm;
     for (auto x = l; x != r; ++x) {
@@ -367,7 +371,13 @@ void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 
             u * z[1] * k,
             v * z[2] * k,
         };
-        invoke_fragment_shader(state, y * width + x, weight);
+        auto cz = z[0] * weight[0] + z[1] * weight[1] + z[2] * weight[2];
+        auto pre_z = reinterpret_cast<float *>(depth_stencil_attachment);
+        pre_z += y * width + x;
+        if (cz > *pre_z) {
+          *pre_z = cz;
+          invoke_fragment_shader(state, y * width + x, weight);
+        }
       }
       um += ac.y;
       vm -= ab.y;
