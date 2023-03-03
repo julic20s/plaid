@@ -359,9 +359,9 @@ void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 
     state.m_current_subpass->depth_stencil_attachment->id
   );
 
-  for (auto y = t; y != b; ++y) {
+  for (auto y = t; y <= b; ++y) {
     auto um_first = um, vm_first = vm;
-    for (auto x = l; x != r; ++x) {
+    for (auto x = l; x <= r; ++x) {
       auto u = um * m, v = vm * m;
       if (u >= 0 && v >= 0 && u + v <= 1) {
         auto p = 1 - u - v;
