@@ -250,16 +250,23 @@ static vec4 line_insertion(const vec4 &l, const vec4 &a, const vec4 &b) {
   return a * weight + b * (1 - weight);
 }
 
-static int clip_triangle(const vec4 (&src)[], vec4 dst[]) {
+static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
   vec4 queue[2][6];
-  int cnt[2];
+  {
+    auto it = queue[0];
+    for (auto &v : src) {
+      *it = v;
+      ++it;
+    }
+  }
+  int cnt[2]{3};
   int pre = 0;
   for (auto &clip : clip_planes) {
     auto now = pre ^ 1;
     cnt[now] = 0;
-    for (int i = 0; i != 3; ++i) {
-      auto &current = src[i];
-      auto &previous = src[(i + 2) % 3];
+    for (int i = 0; i != cnt[pre]; ++i) {
+      auto &current = queue[pre][i];
+      auto &previous = queue[pre][(i + 2) % 3];
       if (dot(clip, current) >= 0) {
         if (dot(clip, previous) < 0) {
           queue[now][cnt[now]++] = line_insertion(clip, previous, current);
