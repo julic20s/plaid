@@ -98,7 +98,6 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
       );
     }
 
-    
     shader_stage_variable_description fragment_shader_output_desc[1 << 8];
     auto fs_out_cnt = fragment_shader_module.variables_meta.outputs_count;
     {
@@ -116,7 +115,7 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
     }
 
     std::size_t vertex_shader_output_size = 0;
-    
+
     for (auto it = sorted_attrs, ed = sorted_attrs + vs_output_cnt; it != ed; ++it) {
       vertex_shader_output_size = (vertex_shader_output_size + it->align - 1) / it->align * it->align;
       // 先把成员偏移量放到记录数组内
@@ -236,6 +235,50 @@ void graphics_pipeline_impl::draw(
   }
 }
 
+constexpr vec4 clip_planes[]{
+    {0, 0, 1, 1},
+    {0, 0, 0, 1},
+    {-1, 0, .5f, 1},
+    {1, 0, .5f, 1},
+    {0, -1, .5f, 1},
+    {0, 1, .5f, 1},
+};
+
+static vec4 line_insertion(const vec4 &l, const vec4 &a, const vec4 &b) {
+  auto da = dot(a, l), db = dot(b, l);
+  auto weight = da / (da - db);
+  return a * weight + b * (1 - weight);
+}
+
+static int clip_triangle(const vec4 (&src)[], vec4 dst[]) {
+  vec4 queue[2][6];
+  int cnt[2];
+  int pre = 0;
+  for (auto &clip : clip_planes) {
+    auto now = pre ^ 1;
+    cnt[now] = 0;
+    for (int i = 0; i != 3; ++i) {
+      auto &current = src[i];
+      auto &previous = src[(i + 2) % 3];
+      if (dot(clip, current) >= 0) {
+        if (dot(clip, previous) < 0) {
+          queue[now][cnt[now]++] = line_insertion(clip, previous, current);
+        }
+        queue[now][cnt[now]++] = current;
+      } else if (dot(clip, previous) >= 0) {
+        queue[now][cnt[now]++] = line_insertion(clip, previous, current);
+      }
+    }
+    pre = now;
+  }
+
+  for (auto it = queue[pre], ed = it + cnt[pre]; it != ed; ++it, ++dst) {
+    *dst = *it;
+  }
+
+  return cnt[pre];
+}
+
 void graphics_pipeline_impl::draw_triangle_strip(
     render_pass::state &state,
     std::uint32_t first_vert, std::uint32_t last_vert,
@@ -263,19 +306,29 @@ void graphics_pipeline_impl::draw_triangle_strip(
       invoke_vertex_shader(state.m_descriptor_set, vertex_shader_output[i], clip_coords[i]);
     }
 
+    vec4 clipped[6];
+    vec4 *target[3];
+    target[0] = clipped;
+
     // TODO：这里还需要确定顶点顺序，使得面剔除能够正确执行
     // （虽然现在也还没有写面剔除
     int ping_pong = 0;
     while (1) {
-      rasterize_triangle(state, clip_coords);
+
+      auto vertex_cnt = clip_triangle(clip_coords, clipped);
+      for (auto i = 1; i <= vertex_cnt - 2; ++i) {
+        target[1] = clipped + i;
+        target[2] = clipped + i + 1;
+        rasterize_triangle(state, target);
+      }
 
       indices[ping_pong] += 3;
       if (indices[ping_pong] == last_vert) break;
       obtain_next_vertex_attribute(vertex_buffer, indices[ping_pong]);
       invoke_vertex_shader(
-        state.m_descriptor_set,
-        vertex_shader_output[ping_pong],
-        clip_coords[ping_pong]
+          state.m_descriptor_set,
+          vertex_shader_output[ping_pong],
+          clip_coords[ping_pong]
       );
       ping_pong = (ping_pong + 1) % 3;
     }
@@ -305,16 +358,16 @@ void graphics_pipeline_impl::obtain_next_instance_attributes(
 }
 
 void graphics_pipeline_impl::invoke_vertex_shader(
-  const std::byte *(&descriptor_set)[1 << 8],
-  std::byte *(&output)[1 << 8],
-  vec4 &clip_coord
+    const std::byte *(&descriptor_set)[1 << 8],
+    std::byte *(&output)[1 << 8],
+    vec4 &clip_coord
 ) {
   // 只有一个内置变量，即裁剪空间坐标
   auto mutable_builtin = reinterpret_cast<std::byte *>(&clip_coord);
   vertex_shader(descriptor_set, vertex_shader_input, output, &mutable_builtin);
 }
 
-void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 (&clip_coord)[3]) {
+void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, const vec4 *const (&clip_coord)[3]) {
   auto width = state.m_frame_buffer->width();
   auto height = state.m_frame_buffer->height();
   [[unlikely]] if (!width || !height) {
@@ -326,10 +379,10 @@ void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 
   {
     auto *view_it = view;
     auto *z_it = z;
-    for (auto &v : clip_coord) {
-      view_it->x = (v.x / v.w + 1.f) / 2 * width;
-      view_it->y = (v.y / v.w + 1.f) / 2 * height;
-      *z_it = v.z / v.w;
+    for (auto v : clip_coord) {
+      view_it->x = (v->x / v->w + 1.f) / 2 * width;
+      view_it->y = (v->y / v->w + 1.f) / 2 * height;
+      *z_it = v->z / v->w;
       ++view_it;
       ++z_it;
     }
@@ -356,7 +409,7 @@ void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, vec4 
   auto vm = cross(pa, ab);
 
   auto depth_stencil_attachment = state.m_frame_buffer->attachement(
-    state.m_current_subpass->depth_stencil_attachment->id
+      state.m_current_subpass->depth_stencil_attachment->id
   );
 
   for (auto y = t; y <= b; ++y) {

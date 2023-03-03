@@ -38,7 +38,7 @@ private:
   /// 执行顶点着色器
   void invoke_vertex_shader(const std::byte *(&descriptor_set)[1 << 8], std::byte *(&output)[1 << 8], vec4 &clip_coord);
 
-  void rasterize_triangle(render_pass::state &, vec4 (&)[3]);
+  void rasterize_triangle(render_pass::state &, const vec4 *const (&)[3]);
 
   void invoke_fragment_shader(render_pass::state &, std::uint32_t index, const float (&weight)[3]);
 
