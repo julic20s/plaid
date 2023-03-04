@@ -172,13 +172,13 @@ concept vec = std::is_same_v<std::remove_cv_t<Ty>, vec2> ||
               std::is_same_v<std::remove_cv_t<Ty>, vec4>;
 
 template <vec Ty>
-[[nodiscard]] constexpr float abs(std::remove_cv_t<Ty> v) noexcept {
+[[nodiscard]] inline float abs(Ty v) noexcept {
   return std::sqrt(dot(v, v));
 }
 
 template <vec Ty>
 [[nodiscard]] constexpr vec3
-operator*(float a, std::remove_cv_t<Ty> b) noexcept {
+operator*(float a, Ty b) noexcept {
   return b * a;
 }
 
