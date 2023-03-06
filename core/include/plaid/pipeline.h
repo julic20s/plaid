@@ -165,7 +165,7 @@ struct graphics_pipeline::create_info {
   shader_stages shader_stage;
   rasterization_state rasterization_state;
   viewport_state viewport_state;
-  render_pass &render_pass;
+  const render_pass &render_pass;
   std::uint8_t subpass;
 };
 

@@ -71,12 +71,30 @@ private:
   subpass_description *m_subpasses;
 };
 
+struct clear_value {
+  union color {
+    float f[4];
+    std::int32_t i[4];
+    std::uint32_t u[4];
+  };
+
+  struct depth_stencil {
+    float depth;
+    std::uint32_t stencil;
+  };
+
+  color color;
+  depth_stencil depth_stencil;
+};
+
 class render_pass::state {
 public:
 
   struct begin_info {
-    render_pass &render_pass;
-    frame_buffer &frame_buffer;
+    const render_pass &render_pass;
+    const frame_buffer &frame_buffer;
+    std::uint16_t clear_values_count;
+    const clear_value *clear_values;
   };
 
   state(const begin_info &);
@@ -104,7 +122,7 @@ private:
   subpass_description *m_last_subpass;
   const std::byte *m_descriptor_set[1 << 8];
   const std::byte *m_vertex_buffer[1 << 8];
-  frame_buffer *m_frame_buffer;
+  const frame_buffer *m_frame_buffer;
 
   friend class graphics_pipeline_impl;
 };

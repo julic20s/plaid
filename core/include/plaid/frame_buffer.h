@@ -40,20 +40,20 @@ public:
 
   /// 获取帧缓冲区的宽度
   /// @return 当前缓冲区的宽度
-  [[nodiscard]] inline std::uint32_t width() noexcept {
+  [[nodiscard]] inline std::uint32_t width() const noexcept {
     return m_width;
   }
 
   /// 获取帧缓冲区的高度
   /// @return 当前缓冲区的高度
-  [[nodiscard]] inline std::uint32_t height() noexcept {
+  [[nodiscard]] inline std::uint32_t height() const noexcept {
     return m_height;
   }
 
   /// 获取指定 ID 附件对应的指针
   /// @param id 附件 ID
   /// @return 附件内存指针
-  [[nodiscard]] inline attachment attachement(std::uint8_t id) {
+  [[nodiscard]] inline attachment attachement(std::uint8_t id) const {
     return m_attachments[id];
   }
 
