@@ -8,17 +8,26 @@
 
 namespace plaid {
 
-class mat4x4 {
-public:
+/// 4 * 4 的矩阵，以行主序存储
+struct mat4x4 {
+
+  /// 获得指定的某一行
+  /// @param i 行号
   [[nodiscard]] constexpr vec4 &
   operator[](std::uint8_t i) noexcept { return r[i]; }
 
+  /// 获得指定的某一行
+  /// @param i 行号
   [[nodiscard]] constexpr const vec4 &
   operator[](std::uint8_t i) const noexcept { return r[i]; }
 
+  /// 行向量数组
   vec4 r[4];
 };
 
+/// 矩阵相加
+/// @param a 左矩阵
+/// @param b 右矩阵
 [[nodiscard]] constexpr mat4x4
 operator+(const mat4x4 &a, const mat4x4 &b) noexcept {
   mat4x4 res;
@@ -30,6 +39,9 @@ operator+(const mat4x4 &a, const mat4x4 &b) noexcept {
   return res;
 }
 
+/// 矩阵相减
+/// @param a 左矩阵
+/// @param b 右矩阵
 [[nodiscard]] constexpr mat4x4
 operator-(const mat4x4 &a, const mat4x4 &b) noexcept {
   mat4x4 res;
@@ -41,6 +53,9 @@ operator-(const mat4x4 &a, const mat4x4 &b) noexcept {
   return res;
 }
 
+/// 矩阵相乘
+/// @param a 左矩阵
+/// @param b 右矩阵
 [[nodiscard]] constexpr mat4x4
 operator*(const mat4x4 &a, const mat4x4 &b) noexcept {
   mat4x4 res;
@@ -55,6 +70,9 @@ operator*(const mat4x4 &a, const mat4x4 &b) noexcept {
   return res;
 }
 
+/// 矩阵左乘到向量
+/// @param a 左矩阵
+/// @param b 右向量
 [[nodiscard]] constexpr vec4
 operator*(const mat4x4 &a, vec4 b) noexcept {
   return {
