@@ -68,7 +68,7 @@ public:
 private:
 
   std::uint32_t m_subpasses_count;
-  subpass_description *m_subpasses;
+  const subpass_description *m_subpasses;
 };
 
 struct clear_value {
@@ -117,9 +117,9 @@ public:
 
 private:
 
-  subpass_description *m_first_subpass;
-  subpass_description *m_current_subpass;
-  subpass_description *m_last_subpass;
+  const subpass_description *m_first_subpass;
+  const subpass_description *m_current_subpass;
+  const subpass_description *m_last_subpass;
   const std::byte *m_descriptor_set[1 << 8];
   const std::byte *m_vertex_buffer[1 << 8];
   const frame_buffer *m_frame_buffer;
