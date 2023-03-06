@@ -111,13 +111,18 @@ void print_fps() {
 
   auto tick = clock();
   if (tick - previous_tick >= CLOCKS_PER_SEC) {
-    printf("fps: %d\n", frame_count);
+    std::cout << "fps: " << frame_count << '\n';
     frame_count = 0;
     previous_tick = tick;
   }
 }
 
 int main(int argc, const char *argv[]) {
+  std::ios::sync_with_stdio(false);
+  std::cin.tie(nullptr);
+  std::cout.tie(nullptr);
+  std::cerr.tie(nullptr);
+
   std::uint32_t user_width = 800, user_height = 600;
   const char *file = nullptr;
   for (auto it = argv, ed = it + argc; it != ed; ++it) {
@@ -128,7 +133,7 @@ int main(int argc, const char *argv[]) {
       } else if (str[1] == 'h' && str[2] == '=') {
         user_height = std::atoi(str + 3);
       } else {
-        std::cout << "Unknown param: " << str << '\n';
+        std::cerr << "Unknown param: " << str << '\n';
         return 0;
       }
     } else {
