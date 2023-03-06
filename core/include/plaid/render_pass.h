@@ -65,21 +65,19 @@ public:
   /// 记录渲染通道状态
   class state;
 
-  struct begin_info;
-
 private:
 
   std::uint32_t m_subpasses_count;
   subpass_description *m_subpasses;
 };
 
-struct render_pass::begin_info {
-  render_pass &render_pass;
-  frame_buffer &frame_buffer;
-};
-
 class render_pass::state {
 public:
+
+  struct begin_info {
+    render_pass &render_pass;
+    frame_buffer &frame_buffer;
+  };
 
   state(const begin_info &);
 

@@ -102,7 +102,7 @@ void render() {
       {{.5, .5, .25}, {0, 0, 1}}, // 4
       {{.5, -.5, .25}, {1, 1, 1}}, // 5
   };
-  plaid::render_pass::begin_info begin_info{
+  plaid::render_pass::state::begin_info begin_info{
       .render_pass = viewer_render_pass,
       .frame_buffer = viewer_frame_buffer,
   };
