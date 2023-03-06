@@ -14,24 +14,38 @@ class graphics_pipeline_impl;
 
 namespace plaid {
 
+/// 附件引用，它不关心附件的具体内存，只关心附件在帧缓冲区的编号，具体的内存位置由帧缓冲区确定
 struct attachment_reference {
+  /// 指明附件在帧缓冲区中的编号
   std::uint8_t id;
+  /// 指明附件格式
   format format;
 };
 
+/// 描述一个渲染子通道
 struct subpass_description {
+  /// 指明输入附件的总数目
   std::uint16_t input_attachments_count;
+  /// 指明颜色附件的总数目
   std::uint16_t color_attachments_count;
+  /// 输入附件数组
   const attachment_reference *input_attachments;
+  /// 颜色附件数组
   const attachment_reference *color_attachments;
+  /// 深度附件
   const attachment_reference *depth_stencil_attachment;
 };
 
+/// 记录一个多通道渲染
 class render_pass {
 public:
 
+  /// 创建一个空的多通道渲染
   render_pass() : m_subpasses_count(0), m_subpasses(nullptr) {}
 
+  /// 根据参数创建多通道渲染
+  /// @param subpasses_count 子通道总数目
+  /// @param subpasses 每个子通道的描述数组
   explicit render_pass(std::uint32_t subpasses_count, const subpass_description *subpasses);
 
   render_pass(const render_pass &) = delete;
@@ -40,11 +54,13 @@ public:
 
   ~render_pass();
 
+  render_pass &operator=(render_pass &&mov);
+
+  /// 获得指定子通道的描述
+  /// @param index 子通道的编号
   [[nodiscard]] const subpass_description &subpass(std::uint32_t index) const {
     return m_subpasses[index];
   }
-
-  render_pass &operator=(render_pass &&mov);
 
   /// 记录渲染通道状态
   class state;
@@ -52,6 +68,7 @@ public:
   struct begin_info;
 
 private:
+
   std::uint32_t m_subpasses_count;
   subpass_description *m_subpasses;
 };
