@@ -24,6 +24,12 @@ public:
 
 private:
 
+  void draw_triangle_list(
+      render_pass::state &,
+      std::uint32_t first_vert, std::uint32_t last_vert,
+      std::uint32_t first_inst, std::uint32_t last_inst
+  );
+
   void draw_triangle_strip(
       render_pass::state &,
       std::uint32_t first_vert, std::uint32_t last_vert,

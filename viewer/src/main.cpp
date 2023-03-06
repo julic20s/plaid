@@ -1,17 +1,16 @@
 #include <ctime>
 
+#include <fstream>
+#include <iostream>
 #include <memory>
+#include <sstream>
+#include <string>
 
 #include <plaid.h>
 
+#include "obj_model.h"
 #include "triangle.hpp"
 #include "window.h"
-
-/// 顶点数据
-struct vertex {
-  plaid::vec3 position;
-  plaid::vec3 color;
-};
 
 plaid::render_pass viewer_render_pass;
 plaid::graphics_pipeline viewer_pipeline;
@@ -38,19 +37,14 @@ void initialize_pipeline() {
       {
           .binding = 0,
           .input_rate = plaid::vertex_input_rate::vertex,
-          .stride = sizeof(vertex),
+          .stride = sizeof(obj_model::vertex),
       }};
 
   constexpr plaid::vertex_input_attribute_description attrs[]{
       {
           .location = 0,
           .binding = 0,
-          .offset = offsetof(vertex, position),
-      },
-      {
-          .location = 1,
-          .binding = 0,
-          .offset = offsetof(vertex, color),
+          .offset = offsetof(obj_model::vertex, pos_index),
       },
   };
 
@@ -60,12 +54,12 @@ void initialize_pipeline() {
   plaid::graphics_pipeline::create_info create_info{
       .vertex_input_state{
           .bindings_count = 1,
-          .attributes_count = 2,
+          .attributes_count = 1,
           .bindings = bindings,
           .attributes = attrs,
       },
       .input_assembly_state{
-          .topology = plaid::primitive_topology::triangle_strip,
+          .topology = plaid::primitive_topology::triangle_list,
       },
       .shader_stage = {
           .vertex_shader = vert,
@@ -93,15 +87,7 @@ void recreate_frame_buffer(std::uint32_t *color, std::uint32_t width, std::uint3
   );
 }
 
-void render() {
-  static const vertex triangle[] = {
-      {{-.5, .5, .75}, {1, 0, 0}}, // 0
-      {{-.5, -.5, .75}, {0, 1, 0}}, // 1
-      {{.5, .5, .75}, {0, 0, 1}}, // 2
-      {{.5, -.5, .75}, {1, 1, 1}}, // 3
-      {{.5, .5, .25}, {0, 0, 1}}, // 4
-      {{.5, -.5, .25}, {1, 1, 1}}, // 5
-  };
+void render(const obj_model &model) {
   plaid::render_pass::state::begin_info begin_info{
       .render_pass = viewer_render_pass,
       .frame_buffer = viewer_frame_buffer,
@@ -110,17 +96,10 @@ void render() {
     *it = 0;
   }
 
-  auto x = clock() / 1000.f;
-  plaid::mat4x4 rotate{{
-      {cosf(x), 0, sinf(x), 0},
-      {0, 1, 0, 0},
-      {-sinf(x), 0, cosf(x), 0},
-      {0, 0, 0, 1},
-  }};
   plaid::render_pass::state state(begin_info);
-  state.bind_descriptor_set(0, reinterpret_cast<std::byte *>(&rotate));
-  state.bind_vertex_buffer(0, reinterpret_cast<const std::byte *>(triangle));
-  state.draw(viewer_pipeline, 6, 1, 0, 0);
+  state.bind_descriptor_set(0, reinterpret_cast<const std::byte *>(model.positions()));
+  state.bind_vertex_buffer(0, reinterpret_cast<const std::byte *>(model.vertices()));
+  state.draw(viewer_pipeline, model.size(), 1, 0, 0);
   state.next_subpass();
 }
 
@@ -139,8 +118,25 @@ void print_fps() {
 }
 
 int main(int argc, const char *argv[]) {
-  // TODO：解析参数，根据参数确定窗口大小
   std::uint32_t user_width = 800, user_height = 600;
+  const char *file = nullptr;
+  for (auto it = argv, ed = it + argc; it != ed; ++it) {
+    auto str = *it;
+    if (str[0] == '-') {
+      if (str[1] == 'w' && str[2] == '=') {
+        user_width = std::atoi(str + 3);
+      } else if (str[1] == 'h' && str[2] == '=') {
+        user_height = std::atoi(str + 3);
+      } else {
+        std::cout << "Unknown param: " << str << '\n';
+        return 0;
+      }
+    } else {
+      file = *it;
+    }
+  }
+
+  obj_model model(file);
 
   auto window = window::create("plaid", user_width, user_height);
   if (!window.valid()) {
@@ -158,7 +154,7 @@ int main(int argc, const char *argv[]) {
     // TODO: 使用 clear_value 在管道中进行操作，而不是在管道外部
     window.clear_surface(0);
     // 渲染帧
-    render();
+    render(model);
     window.commit();
     print_fps();
     window.poll_events();

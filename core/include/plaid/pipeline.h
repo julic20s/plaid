@@ -88,6 +88,7 @@ enum class primitive_topology : std::uint8_t {
   /// 绘制折线
   line_strip,
   /// 绘制三角形
+  triangle_list,
   triangle_strip,
 };
 

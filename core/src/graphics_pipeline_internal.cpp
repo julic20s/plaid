@@ -75,32 +75,49 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
     } sorted_attrs[1 << 8];
 
     auto vs_output_cnt = vertex_shader_module.variables_meta.outputs_count;
+    std::uint32_t vertex_shader_output_size = 0;
+    std::uint32_t vs_align = 0;
+    if (vs_output_cnt) {
+      {
+        // 把类型信息放入待排序数组
+        auto it = vertex_shader_module.variables_meta.outputs;
+        auto ed = it + vs_output_cnt;
+        for (auto dst = sorted_attrs; it != ed; ++it, ++dst) {
+          *dst = {
+              .location = it->location,
+              .align = it->align,
+              .size = it->size,
+          };
+        }
 
-    {
-      // 把类型信息放入待排序数组
-      auto it = vertex_shader_module.variables_meta.outputs;
-      auto ed = it + vs_output_cnt;
-      for (auto dst = sorted_attrs; it != ed; ++it, ++dst) {
-        *dst = {
-            .location = it->location,
-            .align = it->align,
-            .size = it->size,
-        };
+        // 按照 align 排序，则保证构造出来的结构成员间的 padding 和最小
+        // 保证去除内存浪费
+        std::sort(
+            sorted_attrs, sorted_attrs + vs_output_cnt,
+            [](const compare_weights &a, const compare_weights &b) {
+              return a.align < b.align;
+            }
+        );
       }
 
-      // 按照 align 排序，则保证构造出来的结构成员间的 padding 和最小
-      // 保证去除内存浪费
-      std::sort(
-          sorted_attrs, sorted_attrs + vs_output_cnt,
-          [](const compare_weights &a, const compare_weights &b) {
-            return a.align < b.align;
-          }
-      );
+      for (auto it = sorted_attrs, ed = sorted_attrs + vs_output_cnt; it != ed; ++it) {
+        vertex_shader_output_size = (vertex_shader_output_size + it->align - 1) / it->align * it->align;
+        // 先把成员偏移量放到记录数组内
+        auto offset_ptr = reinterpret_cast<std::byte *>(vertex_shader_output_size);
+        for (auto &out : vertex_shader_output) {
+          out[it->location] = offset_ptr;
+        }
+        fragment_shader_input[it->location] = offset_ptr;
+        vertex_shader_output_size += it->size;
+      }
+
+      vs_align = sorted_attrs[vs_output_cnt - 1].align;
     }
 
     shader_stage_variable_description fragment_shader_output_desc[1 << 8];
     auto fs_out_cnt = fragment_shader_module.variables_meta.outputs_count;
-    {
+    std::size_t fragment_shader_output_size = 0;
+    if (fs_out_cnt) {
       auto it = fragment_shader_module.variables_meta.outputs;
       auto ed = it + fs_out_cnt;
       auto out_it = fragment_shader_output_desc;
@@ -112,27 +129,13 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
           fragment_shader_output_desc, fragment_shader_output_desc + fs_out_cnt,
           [](cmp_t &a, cmp_t &b) { return a.align < b.align; }
       );
-    }
 
-    std::size_t vertex_shader_output_size = 0;
-
-    for (auto it = sorted_attrs, ed = sorted_attrs + vs_output_cnt; it != ed; ++it) {
-      vertex_shader_output_size = (vertex_shader_output_size + it->align - 1) / it->align * it->align;
-      // 先把成员偏移量放到记录数组内
-      auto offset_ptr = reinterpret_cast<std::byte *>(vertex_shader_output_size);
-      for (auto &out : vertex_shader_output) {
-        out[it->location] = offset_ptr;
+      for (auto it = fragment_shader_output_desc, ed = it + fs_out_cnt; it != ed; ++it) {
+        fragment_shader_output_size = (fragment_shader_output_size + it->align - 1) / it->align * it->align;
+        auto offset_ptr = reinterpret_cast<std::byte *>(fragment_shader_output_size);
+        fragment_shader_output[it->location] = offset_ptr;
+        fragment_shader_output_size += it->size;
       }
-      fragment_shader_input[it->location] = offset_ptr;
-      vertex_shader_output_size += it->size;
-    }
-
-    std::size_t fragment_shader_output_size = 0;
-    for (auto it = fragment_shader_output_desc, ed = it + fs_out_cnt; it != ed; ++it) {
-      fragment_shader_output_size = (fragment_shader_output_size + it->align - 1) / it->align * it->align;
-      auto offset_ptr = reinterpret_cast<std::byte *>(fragment_shader_output_size);
-      fragment_shader_output[it->location] = offset_ptr;
-      fragment_shader_output_size += it->size;
     }
 
     // 片元着色器输出的内存对齐
@@ -140,7 +143,7 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
     // 片元着色器输出在这块堆内存的偏移
     auto fs_offset = (vertex_shader_output_size * 4 + fs_align - 1) / fs_align * fs_align;
     // 整个输出结构的内存对齐
-    auto tot_align = (std::max)(fs_align, sorted_attrs[vs_output_cnt - 1].align);
+    auto tot_align = (std::max)(vs_align, fs_align);
     // 整个输出结构的字节大小
     auto tot_size = fs_offset + fragment_shader_output_size;
 
@@ -226,6 +229,9 @@ void graphics_pipeline_impl::draw(
   auto last_vert = first_vertex + vertex_count;
   auto last_inst = first_instance + instance_count;
   switch (vertex_assembly) {
+    case primitive_topology::triangle_list:
+      draw_triangle_list(state, first_vertex, last_vert, first_instance, last_inst);
+      break;
     case primitive_topology::triangle_strip:
       draw_triangle_strip(state, first_vertex, last_vert, first_instance, last_inst);
       break;
@@ -236,18 +242,24 @@ void graphics_pipeline_impl::draw(
 }
 
 constexpr vec4 clip_planes[]{
-    {0, 0, 1, 1},
-    {0, 0, 0, 1},
-    {-1, 0, .5f, 1},
-    {1, 0, .5f, 1},
-    {0, -1, .5f, 1},
-    {0, 1, .5f, 1},
+    // near
+    {0, 0, -1, 1},
+    // far
+    {0, 0, 1, 0},
+    // left
+    {1, 0, 0, 1},
+    // right
+    {-1, 0, 0, 1},
+    // top
+    {0, 1, 0, 1},
+    // bottom
+    {0, -1, 0, 1},
 };
 
 static vec4 line_insertion(const vec4 &l, const vec4 &a, const vec4 &b) {
   auto da = dot(a, l), db = dot(b, l);
   auto weight = da / (da - db);
-  return a * weight + b * (1 - weight);
+  return a * (1 - weight) + b * weight;
 }
 
 static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
@@ -266,7 +278,7 @@ static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
     cnt[now] = 0;
     for (int i = 0; i != cnt[pre]; ++i) {
       auto &current = queue[pre][i];
-      auto &previous = queue[pre][(i + 2) % 3];
+      auto &previous = queue[pre][(i + cnt[pre] - 1) % cnt[pre]];
       if (dot(clip, current) >= 0) {
         if (dot(clip, previous) < 0) {
           queue[now][cnt[now]++] = line_insertion(clip, previous, current);
@@ -284,6 +296,59 @@ static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
   }
 
   return cnt[pre];
+}
+
+void graphics_pipeline_impl::draw_triangle_list(
+    render_pass::state &state,
+    std::uint32_t first_vert, std::uint32_t last_vert,
+    std::uint32_t first_inst, std::uint32_t last_inst
+) {
+  [[unlikely]] if (last_vert - first_inst <= 2) {
+    return;
+  }
+
+  auto &vertex_buffer = state.m_vertex_buffer;
+
+  vec4 clip_coords[3];
+  // 采用 IMR 模式，每当完成相邻三个顶点的顶点着色器之后马上进行图元的光栅化
+  // 顶点属性的更新采用如下方法：分别使用 [vertex_input_per_vertex_attributes]
+  // 和 [vertex_input_per_instance_attributes] 记录顶点属性在顶点缓冲区的位置，
+  // 绘制同一实例的不同顶点，只需要更新逐顶点数据
+  for (auto inst = first_inst; inst != last_inst; ++inst) {
+    obtain_next_instance_attributes(vertex_buffer, inst);
+
+    std::uint32_t indices[]{0, 1, 2};
+
+    vec4 clipped[6];
+    vec4 *target[3];
+    target[0] = clipped;
+    while (1) {
+      auto it = vertex_shader_output;
+      auto coord_it = clip_coords;
+      for (auto i : indices) {
+        obtain_next_vertex_attribute(vertex_buffer, i);
+        invoke_vertex_shader(
+            state.m_descriptor_set,
+            *it,
+            *coord_it
+        );
+        ++it, ++coord_it;
+      }
+
+      auto vertex_cnt = clip_triangle(clip_coords, clipped);
+      for (auto i = 1; i <= vertex_cnt - 2; ++i) {
+        target[1] = clipped + i;
+        target[2] = clipped + i + 1;
+        rasterize_triangle(state, target);
+      }
+
+      auto start = indices[2];
+      if (start + 3 >= last_vert) break;
+      indices[0] = start + 1;
+      indices[1] = start + 2;
+      indices[2] = start + 3;
+    }
+  }
 }
 
 void graphics_pipeline_impl::draw_triangle_strip(
