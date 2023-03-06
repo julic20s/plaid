@@ -71,6 +71,7 @@ private:
   const subpass_description *m_subpasses;
 };
 
+/// 为每个附件进行初始化赋值
 struct clear_value {
   union color {
     float f[4];
