@@ -6,9 +6,9 @@
 #include <cstdint>
 
 #include "format.h"
-#include "frame_buffer.h"
 
 namespace plaid {
+class frame_buffer;
 class graphics_pipeline_impl;
 } // namespace plaid
 
