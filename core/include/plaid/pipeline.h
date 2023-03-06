@@ -5,11 +5,13 @@
 #ifndef PLAID_PIPELINE_H_
 #define PLAID_PIPELINE_H_
 
-#include <cstdint>
-
-#include "render_pass.h"
-#include "shader.h"
 #include "utility.h"
+
+// 前向声明
+namespace plaid {
+class render_pass;
+class shader_module;
+}
 
 namespace plaid {
 

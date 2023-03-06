@@ -4,6 +4,7 @@
 
 #include <plaid/pipeline.h>
 #include <plaid/render_pass.h>
+#include <plaid/shader.h>
 #include <plaid/vec.h>
 
 namespace plaid {
