@@ -13,6 +13,46 @@
 
 namespace plaid {
 
+/// 图形管道实现类，对用户不可见
+class graphics_pipeline_impl;
+
+/// 图形管道指针的包装，可移动不可复制，所有图形管道的创建在内部管理
+class graphics_pipeline {
+public:
+
+  /// 创建指定参数的图形管道
+  struct create_info;
+
+  /// 创建一个空的管道指针
+  graphics_pipeline() : m_pointer(nullptr) {}
+
+  /// 根据参数创建管道
+  /// @param info 图形管道参数
+  explicit graphics_pipeline(const create_info &info);
+
+  graphics_pipeline(const graphics_pipeline &) = delete;
+
+  graphics_pipeline(graphics_pipeline &&mov) noexcept {
+    m_pointer = mov.m_pointer;
+    mov.m_pointer = nullptr;
+  }
+
+  ~graphics_pipeline();
+
+  graphics_pipeline &operator=(graphics_pipeline &&mov) noexcept {
+    m_pointer = mov.m_pointer;
+    mov.m_pointer = nullptr;
+    return *this;
+  }
+
+  /// 转换为原生指针
+  [[nodiscard]] inline operator graphics_pipeline_impl *() noexcept { return m_pointer; }
+
+private:
+
+  graphics_pipeline_impl *m_pointer;
+};
+
 /// 指定管道从顶点缓冲区读入新数据的频率
 enum class vertex_input_rate : std::uint8_t {
   /// 每绘制一个顶点，就从缓冲区获取一个新数据
@@ -21,7 +61,7 @@ enum class vertex_input_rate : std::uint8_t {
   instance,
 };
 
-/// 描述一个绑定点的规格
+/// 描述一个绑定点的规格，管线可以以绑定点为单位绑定顶点缓冲区
 struct vertex_input_binding_description {
   /// 此对象所描述的顶点输入绑定点的编号
   std::uint8_t binding;
@@ -67,51 +107,26 @@ enum class polygon_mode : std::uint8_t {
 
 using cull_mode = std::uint8_t;
 
-/// 面剔除
+/// 面剔除位掩码
 struct cull_modes {
+  /// 不进行面剔除
   static constexpr cull_mode none = 0;
+  /// 剔除正面
   static constexpr cull_mode front = 1;
+  /// 剔除背面
   static constexpr cull_mode back = 2;
-};
-
-class graphics_pipeline_impl;
-
-/// 图形管道句柄
-class graphics_pipeline {
-public:
-  struct create_info;
-
-  graphics_pipeline() : m_pointer(nullptr) {}
-
-  explicit graphics_pipeline(const create_info &);
-
-  graphics_pipeline(const graphics_pipeline &) = delete;
-
-  graphics_pipeline(graphics_pipeline &&mov) noexcept {
-    m_pointer = mov.m_pointer;
-    mov.m_pointer = nullptr;
-  }
-
-  ~graphics_pipeline();
-
-  graphics_pipeline &operator=(graphics_pipeline &&mov) noexcept {
-    m_pointer = mov.m_pointer;
-    mov.m_pointer = nullptr;
-    return *this;
-  }
-
-  [[nodiscard]] inline operator graphics_pipeline_impl *() noexcept { return m_pointer; }
-
-private:
-  graphics_pipeline_impl *m_pointer;
 };
 
 struct graphics_pipeline::create_info {
   /// 顶点输入缓冲区规格
   struct vertex_input_state {
+    /// 指明当前顶点输入的绑定点个数
     std::uint16_t bindings_count;
+    /// 指明当前顶点输入的属性个数
     std::uint16_t attributes_count;
+    /// 绑定点描述数组
     const vertex_input_binding_description *bindings;
+    /// 属性描述数组
     const vertex_input_attribute_description *attributes;
   };
 
