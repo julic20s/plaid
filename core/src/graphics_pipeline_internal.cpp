@@ -235,16 +235,16 @@ void RGBA32323232_unsigned_integer_to_BGRA8888_unsigned_integer(
 
 graphics_pipeline_impl::fragment_shader_out_detail::attachment_transition_function *
 graphics_pipeline_impl::match_attachment_transition_function(format src, format dst) {
-  if (src == format::rgb323232_float) {
-    if (dst == format::bgra8888_unsigned_integer) {
+  if (src == format::RGB32f) {
+    if (dst == format::BGRA8u) {
       return RGB323232_float_to_BGRA888_unsigned_integer;
     }
-  } else if (src == format::rgba32323232_float) {
-    if (dst == format::bgra8888_unsigned_integer) {
+  } else if (src == format::RGBA32f) {
+    if (dst == format::BGRA8u) {
       return RGBA32323232_float_to_BGRA8888_unsigned_integer;
     }
-  } else if (src == format::rgba32323232_unsigned_integer) {
-    if (dst == format::bgra8888_unsigned_integer) {
+  } else if (src == format::RGBA32u) {
+    if (dst == format::BGRA8u) {
       return RGBA32323232_unsigned_integer_to_BGRA8888_unsigned_integer;
     }
   }
@@ -274,10 +274,10 @@ void graphics_pipeline_impl::draw(
         auto src_format = format::undefined;
         const std::byte *src = nullptr;
         if (is_float_format(it->format)) {
-          src_format = format::rgba32323232_float;
+          src_format = format::RGBA32f;
           src = reinterpret_cast<const std::byte *>(&state.m_clear_values[it->id].color.f);
         } else if (is_unsigned_integer_format(it->format)) {
-          src_format = format::rgba32323232_unsigned_integer;
+          src_format = format::RGBA32u;
           src = reinterpret_cast<const std::byte *>(&state.m_clear_values[it->id].color.u);
         }
         auto trans = match_attachment_transition_function(src_format, it->format);

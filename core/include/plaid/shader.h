@@ -310,17 +310,17 @@ struct shader::binding {
 
 template <>
 struct attribute_format_matcher<vec2> {
-  static constexpr auto format = format::rg3232_float;
+  static constexpr auto format = format::RG32f;
 };
 
 template <>
 struct attribute_format_matcher<vec3> {
-  static constexpr auto format = format::rgb323232_float;
+  static constexpr auto format = format::RGB32f;
 };
 
 template <>
 struct attribute_format_matcher<vec4> {
-  static constexpr auto format = format::rgba32323232_float;
+  static constexpr auto format = format::RGBA32f;
 };
 
 #endif

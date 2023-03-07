@@ -20,7 +20,7 @@ std::uint32_t size;
 
 /// 初始化渲染通道
 void initialize_render_pass() {
-  plaid::attachment_reference color_attachment_ref{0, plaid::format::bgra8888_unsigned_integer};
+  plaid::attachment_reference color_attachment_ref{0, plaid::format::BGRA8u};
   plaid::attachment_reference depth_stencil_attachment{1};
   plaid::subpass_description subpass{
       .color_attachments_count = 1,

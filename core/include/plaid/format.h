@@ -7,11 +7,11 @@
 namespace plaid {
 enum class format : std::uint16_t {
   undefined = 0x000,
-  rg3232_float = 0x024,
-  rgb323232_float = 0x034,
-  rgba32323232_float = 0x044,
-  rgba32323232_unsigned_integer = 0x144,
-  bgra8888_unsigned_integer = 0x141,
+  RG32f = 0x024,
+  RGB32f = 0x034,
+  RGBA32f = 0x044,
+  RGBA32u = 0x144,
+  BGRA8u = 0x141,
 };
 
 [[nodiscard]] inline std::uint32_t format_size(format f) {
