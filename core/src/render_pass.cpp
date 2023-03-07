@@ -4,20 +4,21 @@
 
 using namespace plaid;
 
-render_pass::render_pass(std::uint32_t subpasses_count, const subpass_description *subpasses) {
-  subpass_description *copied_arr = nullptr;
-  if (subpasses_count) {
-    copied_arr = new subpass_description[subpasses_count];
-    for (auto it = copied_arr, ed = it + subpasses_count; it != ed; ++it, ++subpasses) {
-      *it = *subpasses;
+render_pass::render_pass(const create_info &info) {
+  subpass_description *copied_subpasses = nullptr;
+  if (info.subpasses_count) {
+    auto subpass = info.subpasses;
+    copied_subpasses = new subpass_description[info.subpasses_count];
+    for (auto it = copied_subpasses, ed = it + info.subpasses_count; it != ed; ++it, ++subpass) {
+      *it = *subpass;
       if (it->input_attachments_count) {
         auto dst = new attachment_reference[it->input_attachments_count];
-        std::copy_n(subpasses->input_attachments, it->input_attachments_count, dst);
+        std::copy_n(subpass->input_attachments, it->input_attachments_count, dst);
         it->input_attachments = dst;
       }
       if (it->color_attachments_count) {
         auto dst = new attachment_reference[it->color_attachments_count];
-        std::copy_n(subpasses->color_attachments, it->color_attachments_count, dst);
+        std::copy_n(subpass->color_attachments, it->color_attachments_count, dst);
         it->color_attachments = dst;
       }
       if (it->depth_stencil_attachment) {
@@ -25,14 +26,30 @@ render_pass::render_pass(std::uint32_t subpasses_count, const subpass_descriptio
       }
     }
   }
-  m_subpasses_count = subpasses_count;
-  m_subpasses = copied_arr;
+
+  attachment_description *copied_attachments = nullptr;
+  if (info.attachments_count) {
+    auto attachment = info.attachments;
+    copied_attachments = new attachment_description[info.attachments_count];
+    for (auto it = copied_attachments, ed = it + info.attachments_count; it != ed; ++it, ++attachment) {
+      *it = *attachment;
+    }
+  }
+
+  m_subpasses_count = info.subpasses_count;
+  m_attachments_count = info.attachments_count;
+  m_subpasses = copied_subpasses;
+  m_attachments = copied_attachments;
 }
 
 render_pass::render_pass(render_pass &&mov) noexcept {
+  m_attachments_count = mov.m_attachments_count;
   m_subpasses_count = mov.m_subpasses_count;
+  m_attachments = mov.m_attachments;
   m_subpasses = mov.m_subpasses;
+  mov.m_attachments_count = 0;
   mov.m_subpasses_count = 0;
+  mov.m_attachments = nullptr;
   mov.m_subpasses = nullptr;
 }
 
@@ -51,6 +68,9 @@ render_pass::~render_pass() {
   }
   if (m_subpasses) {
     delete [] m_subpasses;
+  }
+  if (m_attachments) {
+    delete [] m_attachments;
   }
 }
 

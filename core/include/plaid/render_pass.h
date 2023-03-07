@@ -14,6 +14,31 @@ class graphics_pipeline_impl;
 
 namespace plaid {
 
+/// 指定附件的加载偏好
+enum class attachment_load_op : std::uint8_t {
+  // 保留之前的内容
+  load = 0,
+  // 清除之前的内容，清除值将由 clear_value 指定
+  clear = 1,
+  // 之前的内容不会被写入
+  dont_care = 2,
+};
+
+/// 指定附件的写入偏好
+enum class attachment_store_op : std::uint8_t {
+  // 内容将被写入附件
+  store = 0,
+  // 内容将不会被写入附件
+  dont_care = 1,
+};
+
+struct attachment_description {
+  attachment_load_op load_op;
+  attachment_store_op store_op;
+  attachment_load_op stencil_load_op;
+  attachment_store_op stencil_store_op;
+};
+
 /// 附件引用，它不关心附件的具体内存，只关心附件在帧缓冲区的编号，具体的内存位置由帧缓冲区确定
 struct attachment_reference {
   /// 指明附件在帧缓冲区中的编号
@@ -40,13 +65,18 @@ struct subpass_description {
 class render_pass {
 public:
 
+  struct create_info;
+
   /// 创建一个空的多通道渲染
-  render_pass() : m_subpasses_count(0), m_subpasses(nullptr) {}
+  render_pass()
+      : m_attachments_count(0),
+        m_subpasses_count(0),
+        m_attachments(nullptr),
+        m_subpasses(nullptr) {}
 
   /// 根据参数创建多通道渲染
-  /// @param subpasses_count 子通道总数目
-  /// @param subpasses 每个子通道的描述数组
-  explicit render_pass(std::uint32_t subpasses_count, const subpass_description *subpasses);
+  /// @param info 创建参数
+  explicit render_pass(const create_info &info);
 
   render_pass(const render_pass &) = delete;
 
@@ -67,8 +97,17 @@ public:
 
 private:
 
+  std::uint16_t m_attachments_count;
   std::uint16_t m_subpasses_count;
+  const attachment_description *m_attachments;
   const subpass_description *m_subpasses;
+};
+
+struct render_pass::create_info {
+  std::uint16_t attachments_count;
+  std::uint16_t subpasses_count;
+  attachment_description *attachments;
+  subpass_description *subpasses;
 };
 
 /// 为每个附件进行初始化赋值

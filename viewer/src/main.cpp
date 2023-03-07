@@ -28,7 +28,17 @@ void initialize_render_pass() {
       .depth_stencil_attachment = &depth_stencil_attachment,
   };
 
-  viewer_render_pass = plaid::render_pass(1, &subpass);
+  plaid::attachment_description attachments[] {
+  };
+
+  plaid::render_pass::create_info create_info {
+    .attachments_count = 2,
+    .subpasses_count = 1,
+    .attachments = attachments,
+    .subpasses = &subpass,
+  };
+
+  viewer_render_pass = plaid::render_pass(create_info);
 }
 
 /// 初始化图形管道
