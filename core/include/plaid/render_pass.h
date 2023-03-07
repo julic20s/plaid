@@ -67,7 +67,7 @@ public:
 
 private:
 
-  std::uint32_t m_subpasses_count;
+  std::uint16_t m_subpasses_count;
   const subpass_description *m_subpasses;
 };
 
