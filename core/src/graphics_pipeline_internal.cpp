@@ -201,56 +201,6 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
   }
 }
 
-void RGB323232_float_to_BGRA888_unsigned_integer(
-    const std::byte *src, std::byte *dst
-) {
-  auto final_color = reinterpret_cast<const vec3 *>(src);
-  auto r = std::uint32_t(final_color->x * 0xff);
-  auto g = std::uint32_t(final_color->y * 0xff);
-  auto b = std::uint32_t(final_color->z * 0xff);
-  *reinterpret_cast<std::uint32_t *>(dst) = r << 16 | g << 8 | b;
-}
-
-void RGBA32323232_float_to_BGRA8888_unsigned_integer(
-    const std::byte *src, std::byte *dst
-) {
-  auto final_color = reinterpret_cast<const vec4 *>(src);
-  auto r = std::uint32_t(final_color->x * 0xff);
-  auto g = std::uint32_t(final_color->y * 0xff);
-  auto b = std::uint32_t(final_color->z * 0xff);
-  auto a = std::uint32_t(final_color->w * 0xff);
-  *reinterpret_cast<std::uint32_t *>(dst) = a << 24 | r << 16 | g << 8 | b;
-}
-
-void RGBA32323232_unsigned_integer_to_BGRA8888_unsigned_integer(
-    const std::byte *src, std::byte *dst
-) {
-  auto final_color = *reinterpret_cast<const std::uint32_t *>(src);
-  auto r = (final_color & 0x000000ff);
-  auto g = (final_color & 0x0000ff00) >> 8;
-  auto b = (final_color & 0x00ff0000) >> 16;
-  auto a = (final_color & 0xff000000) >> 24;
-  *reinterpret_cast<std::uint32_t *>(dst) = a << 24 | r << 16 | g << 8 | b;
-}
-
-graphics_pipeline_impl::fragment_shader_out_detail::attachment_transition_function *
-graphics_pipeline_impl::match_attachment_transition_function(format src, format dst) {
-  if (src == format::RGB32f) {
-    if (dst == format::BGRA8u) {
-      return RGB323232_float_to_BGRA888_unsigned_integer;
-    }
-  } else if (src == format::RGBA32f) {
-    if (dst == format::BGRA8u) {
-      return RGBA32323232_float_to_BGRA8888_unsigned_integer;
-    }
-  } else if (src == format::RGBA32u) {
-    if (dst == format::BGRA8u) {
-      return RGBA32323232_unsigned_integer_to_BGRA8888_unsigned_integer;
-    }
-  }
-  return nullptr;
-}
-
 graphics_pipeline_impl::~graphics_pipeline_impl() {
   ::operator delete(stage_shader_variables_resource, stage_shader_variables_resource_align);
 }

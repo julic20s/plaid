@@ -7,6 +7,8 @@
 #include <plaid/shader.h>
 #include <plaid/vec.h>
 
+#include "attachment_transition.h"
+
 namespace plaid {
 
 class graphics_pipeline_impl {
@@ -113,7 +115,6 @@ private:
   fragment_attribute_detail fragment_attributes[1 << 8];
   /// 保存所有片元着色器输出
   struct fragment_shader_out_detail {
-    using attachment_transition_function = void(const std::byte *src, std::byte *dst);
     /// 着色器输出变量编号
     std::uint8_t location;
     /// 目标附件编号
@@ -123,9 +124,6 @@ private:
     attachment_transition_function *attachment_transition;
   };
   fragment_shader_out_detail fragment_shader_out_details[1 << 8];
-
-  static fragment_shader_out_detail::attachment_transition_function *
-  match_attachment_transition_function(format src, format dst);
 };
 
 } // namespace plaid
