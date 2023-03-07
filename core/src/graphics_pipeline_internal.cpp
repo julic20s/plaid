@@ -297,21 +297,6 @@ void graphics_pipeline_impl::draw(
   }
 }
 
-constexpr vec4 clip_planes[]{
-    // near
-    {0, 0, -1, 1},
-    // far
-    {0, 0, 1, 0},
-    // left
-    {1, 0, 0, 1},
-    // right
-    {-1, 0, 0, 1},
-    // top
-    {0, 1, 0, 1},
-    // bottom
-    {0, -1, 0, 1},
-};
-
 static vec4 line_insertion(const vec4 &l, const vec4 &a, const vec4 &b) {
   auto da = dot(a, l), db = dot(b, l);
   auto weight = da / (da - db);
@@ -319,6 +304,21 @@ static vec4 line_insertion(const vec4 &l, const vec4 &a, const vec4 &b) {
 }
 
 static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
+  static constexpr vec4 clip_planes[]{
+      // near
+      {0, 0, -1, 1},
+      // far
+      {0, 0, 1, 0},
+      // left
+      {1, 0, 0, 1},
+      // right
+      {-1, 0, 0, 1},
+      // top
+      {0, 1, 0, 1},
+      // bottom
+      {0, -1, 0, 1},
+  };
+  
   vec4 queue[2][6];
   {
     auto it = queue[0];
