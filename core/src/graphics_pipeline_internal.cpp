@@ -191,13 +191,17 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
       auto &attachment = subpass.color_attachments[it->location];
       out_it->location = it->location;
       out_it->attachment_id = attachment.id;
-      out_it->attachment_stride = format_size(attachment.format);
+      if (info.render_pass.attachment(attachment.id).store_op == attachment_store_op::store) {
+        out_it->attachment_stride = format_size(attachment.format);
+      } else {
+        out_it->attachment_stride = 0;
+      }
       out_it->attachment_transition = match_attachment_transition_function(it->format, attachment.format);
     }
   }
 }
 
-void rgb323232_float_to_rgb888_integer(
+void RGB323232_float_to_BGRA888_unsigned_integer(
     const std::byte *src, std::byte *dst
 ) {
   auto final_color = reinterpret_cast<const vec3 *>(src);
@@ -207,11 +211,41 @@ void rgb323232_float_to_rgb888_integer(
   *reinterpret_cast<std::uint32_t *>(dst) = r << 16 | g << 8 | b;
 }
 
+void RGBA32323232_float_to_BGRA8888_unsigned_integer(
+    const std::byte *src, std::byte *dst
+) {
+  auto final_color = reinterpret_cast<const vec4 *>(src);
+  auto r = std::uint32_t(final_color->x * 0xff);
+  auto g = std::uint32_t(final_color->y * 0xff);
+  auto b = std::uint32_t(final_color->z * 0xff);
+  auto a = std::uint32_t(final_color->w * 0xff);
+  *reinterpret_cast<std::uint32_t *>(dst) = a << 24 | r << 16 | g << 8 | b;
+}
+
+void RGBA32323232_unsigned_integer_to_BGRA8888_unsigned_integer(
+    const std::byte *src, std::byte *dst
+) {
+  auto final_color = *reinterpret_cast<const std::uint32_t *>(src);
+  auto r = (final_color & 0x000000ff);
+  auto g = (final_color & 0x0000ff00) >> 8;
+  auto b = (final_color & 0x00ff0000) >> 16;
+  auto a = (final_color & 0xff000000) >> 24;
+  *reinterpret_cast<std::uint32_t *>(dst) = a << 24 | r << 16 | g << 8 | b;
+}
+
 graphics_pipeline_impl::fragment_shader_out_detail::attachment_transition_function *
 graphics_pipeline_impl::match_attachment_transition_function(format src, format dst) {
   if (src == format::rgb323232_float) {
-    if (dst == format::rgb888_integer) {
-      return rgb323232_float_to_rgb888_integer;
+    if (dst == format::bgra8888_unsigned_integer) {
+      return RGB323232_float_to_BGRA888_unsigned_integer;
+    }
+  } else if (src == format::rgba32323232_float) {
+    if (dst == format::bgra8888_unsigned_integer) {
+      return RGBA32323232_float_to_BGRA8888_unsigned_integer;
+    }
+  } else if (src == format::rgba32323232_unsigned_integer) {
+    if (dst == format::bgra8888_unsigned_integer) {
+      return RGBA32323232_unsigned_integer_to_BGRA8888_unsigned_integer;
     }
   }
   return nullptr;
@@ -226,6 +260,34 @@ void graphics_pipeline_impl::draw(
     std::uint32_t vertex_count, std::uint32_t instance_count,
     std::uint32_t first_vertex, std::uint32_t first_instance
 ) {
+  {
+    auto it = state.m_current_subpass->color_attachments;
+    auto ed = it + state.m_current_subpass->color_attachments_count;
+    auto clear_it = state.m_clear_values;
+    for (; it != ed; ++it) {
+      auto &desc = state.m_attachment_descriptions[it->id];
+      if (desc.load_op == attachment_load_op::clear) {
+        // 颜色附件指针
+        auto dst = state.m_frame_buffer->attachement(it->id);
+        auto dst_stride = format_size(it->format);
+        auto dst_ed = dst + state.m_frame_buffer->width() * state.m_frame_buffer->height() * dst_stride;
+        auto src_format = format::undefined;
+        const std::byte *src = nullptr;
+        if (is_float_format(it->format)) {
+          src_format = format::rgba32323232_float;
+          src = reinterpret_cast<const std::byte *>(&state.m_clear_values[it->id].color.f);
+        } else if (is_unsigned_integer_format(it->format)) {
+          src_format = format::rgba32323232_unsigned_integer;
+          src = reinterpret_cast<const std::byte *>(&state.m_clear_values[it->id].color.u);
+        }
+        auto trans = match_attachment_transition_function(src_format, it->format);
+        for (; dst != dst_ed; dst += dst_stride) {
+          trans(src, dst);
+        }
+      }
+    }
+  }
+
   auto last_vert = first_vertex + vertex_count;
   auto last_inst = first_instance + instance_count;
   switch (vertex_assembly) {
@@ -538,6 +600,9 @@ void graphics_pipeline_impl::invoke_fragment_shader(
   auto frame_buffer = state.m_frame_buffer;
   auto it = fragment_shader_out_details, ed = it + fragment_out_count;
   for (; it != ed; ++it) {
+    if (!it->attachment_stride) {
+      continue;
+    }
     auto ptr = frame_buffer->attachement(it->attachment_id) + index * it->attachment_stride;
     it->attachment_transition(fragment_shader_output[it->location], ptr);
   }

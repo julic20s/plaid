@@ -20,22 +20,27 @@ std::uint32_t size;
 
 /// 初始化渲染通道
 void initialize_render_pass() {
-  plaid::attachment_reference color_attachment{0, plaid::format::rgb888_integer};
+  plaid::attachment_reference color_attachment_ref{0, plaid::format::bgra8888_unsigned_integer};
   plaid::attachment_reference depth_stencil_attachment{1};
   plaid::subpass_description subpass{
       .color_attachments_count = 1,
-      .color_attachments = &color_attachment,
+      .color_attachments = &color_attachment_ref,
       .depth_stencil_attachment = &depth_stencil_attachment,
   };
 
-  plaid::attachment_description attachments[] {
+  plaid::attachment_description attachments[]{
+      {
+          // color attachment
+          .load_op = plaid::attachment_load_op::clear,
+          .store_op = plaid::attachment_store_op::store,
+      },
   };
 
-  plaid::render_pass::create_info create_info {
-    .attachments_count = 2,
-    .subpasses_count = 1,
-    .attachments = attachments,
-    .subpasses = &subpass,
+  plaid::render_pass::create_info create_info{
+      .attachments_count = 2,
+      .subpasses_count = 1,
+      .attachments = attachments,
+      .subpasses = &subpass,
   };
 
   viewer_render_pass = plaid::render_pass(create_info);
@@ -98,9 +103,16 @@ void recreate_frame_buffer(std::uint32_t *color, std::uint32_t width, std::uint3
 }
 
 void render(const obj_model &model) {
+  plaid::clear_value color_clear{
+      .color{
+          .u{0, 0, 0, 0},
+      },
+  };
   plaid::render_pass::state::begin_info begin_info{
       .render_pass = viewer_render_pass,
       .frame_buffer = viewer_frame_buffer,
+      .clear_values_count = 1,
+      .clear_values = &color_clear,
   };
   for (auto it = depth_buffer.get(), ed = it + size; it != ed; ++it) {
     *it = 0;
@@ -166,8 +178,6 @@ int main(int argc, const char *argv[]) {
 
   window.show();
   [[likely]] while (!window.should_close()) {
-    // TODO: 使用 clear_value 在管道中进行操作，而不是在管道外部
-    window.clear_surface(0);
     // 渲染帧
     render(model);
     window.commit();

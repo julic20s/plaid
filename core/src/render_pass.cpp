@@ -79,9 +79,12 @@ render_pass &render_pass::operator=(render_pass &&mov) {
 }
 
 render_pass::state::state(const begin_info &begin) {
+  m_attachment_descriptions = begin.render_pass.m_attachments;
   m_current_subpass = m_first_subpass = begin.render_pass.m_subpasses;
   m_last_subpass = m_first_subpass + begin.render_pass.m_subpasses_count;
   m_frame_buffer = &begin.frame_buffer;
+  m_clear_values_count = begin.clear_values_count;
+  m_clear_values = begin.clear_values;
 }
 
 void render_pass::state::next_subpass() {

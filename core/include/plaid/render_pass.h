@@ -91,9 +91,15 @@ public:
 
   render_pass &operator=(render_pass &&mov);
 
+  /// 获得指定附件的描述
+  /// @param index 附件编号
+  [[nodiscard]] inline const attachment_description &attachment(std::uint8_t index) const {
+    return m_attachments[index];
+  }
+
   /// 获得指定子通道的描述
   /// @param index 子通道的编号
-  [[nodiscard]] const subpass_description &subpass(std::uint32_t index) const {
+  [[nodiscard]] inline const subpass_description &subpass(std::uint8_t index) const {
     return m_subpasses[index];
   }
 
@@ -164,12 +170,16 @@ public:
 
 private:
 
+  const attachment_description *m_attachment_descriptions;
   const subpass_description *m_first_subpass;
   const subpass_description *m_current_subpass;
   const subpass_description *m_last_subpass;
   const std::byte *m_descriptor_set[1 << 8];
   const std::byte *m_vertex_buffer[1 << 8];
   const frame_buffer *m_frame_buffer;
+
+  std::uint16_t m_clear_values_count;
+  const clear_value *m_clear_values;
 
   friend class graphics_pipeline_impl;
 };
