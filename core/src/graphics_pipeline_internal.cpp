@@ -523,6 +523,9 @@ void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, const
     r = (std::max)(r, static_cast<decltype(l)>(v.x));
     b = (std::max)(b, static_cast<decltype(l)>(v.y));
   }
+  // 有些三角形裁剪之后，顶点刚好落在边缘上，上面算出来会超出帧缓冲范围
+  r = (std::min)(r, width - 1);
+  b = (std::min)(b, height - 1);
 
   auto ab = view[1] - view[0];
   auto ac = view[2] - view[0];
