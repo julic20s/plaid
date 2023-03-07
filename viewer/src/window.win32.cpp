@@ -137,7 +137,7 @@ window window::create(
   }
 
   auto hwnd = CreateWindowEx(
-      WS_EX_OVERLAPPEDWINDOW,
+      0,
       window_class_name,
       title_data,
       WS_OVERLAPPEDWINDOW,
