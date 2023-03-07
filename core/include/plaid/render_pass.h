@@ -61,6 +61,11 @@ struct subpass_description {
   const attachment_reference *depth_stencil_attachment;
 };
 
+struct subpass_dependency {
+  std::uint16_t src_subpass;
+  std::uint16_t dst_subpass;
+};
+
 /// 记录一个多通道渲染
 class render_pass {
 public:
@@ -106,8 +111,10 @@ private:
 struct render_pass::create_info {
   std::uint16_t attachments_count;
   std::uint16_t subpasses_count;
+  std::uint16_t dependencies_count;
   attachment_description *attachments;
   subpass_description *subpasses;
+  subpass_dependency *dependencies;
 };
 
 /// 为每个附件进行初始化赋值
