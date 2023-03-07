@@ -21,7 +21,7 @@ std::uint32_t size;
 /// 初始化渲染通道
 void initialize_render_pass() {
   plaid::attachment_reference color_attachment_ref{0, plaid::format::BGRA8u};
-  plaid::attachment_reference depth_stencil_attachment{1};
+  plaid::attachment_reference depth_stencil_attachment{1, plaid::format::R32f};
   plaid::subpass_description subpass{
       .color_attachments_count = 1,
       .color_attachments = &color_attachment_ref,
@@ -33,6 +33,11 @@ void initialize_render_pass() {
           // color attachment
           .load_op = plaid::attachment_load_op::clear,
           .store_op = plaid::attachment_store_op::store,
+      },
+      {
+          // depth attachment
+          .stencil_load_op = plaid::attachment_load_op::clear,
+          .stencil_store_op = plaid::attachment_store_op::store,
       },
   };
 
@@ -107,16 +112,17 @@ void render(const obj_model &model) {
       .color{
           .u{0, 0, 0, 0},
       },
+      .depth_stencil{
+          .depth = 0.f,
+      },
   };
+  plaid::clear_value clear_values[] {color_clear, color_clear};
   plaid::render_pass::state::begin_info begin_info{
       .render_pass = viewer_render_pass,
       .frame_buffer = viewer_frame_buffer,
-      .clear_values_count = 1,
-      .clear_values = &color_clear,
+      .clear_values_count = 2,
+      .clear_values = clear_values,
   };
-  for (auto it = depth_buffer.get(), ed = it + size; it != ed; ++it) {
-    *it = 0;
-  }
 
   plaid::render_pass::state state(begin_info);
   state.bind_descriptor_set(0, reinterpret_cast<const std::byte *>(model.positions()));

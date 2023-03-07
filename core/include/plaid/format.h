@@ -9,6 +9,7 @@ namespace plaid {
 // 标记像素格式，采用位掩码形式表示各个类型
 enum class format : std::uint16_t {
   undefined = 0x000,
+  R32f = 0x014,
   RG32f = 0x024,
   RGB32f = 0x034,
   RGBA32f = 0x044,

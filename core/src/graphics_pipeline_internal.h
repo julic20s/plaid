@@ -26,6 +26,10 @@ public:
 
 private:
 
+  static void clear_color_attachment(render_pass::state &, attachment_reference);
+
+  static void clear_depth_attachment(render_pass::state &, attachment_reference);
+
   void draw_triangle_list(
       render_pass::state &,
       std::uint32_t first_vert, std::uint32_t last_vert,

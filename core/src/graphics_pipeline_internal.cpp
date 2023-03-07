@@ -205,36 +205,80 @@ graphics_pipeline_impl::~graphics_pipeline_impl() {
   ::operator delete(stage_shader_variables_resource, stage_shader_variables_resource_align);
 }
 
+static void clear_by_format(
+    format src, format dst,
+    std::byte *first, std::byte *last,
+    const std::byte *val, std::uint32_t stride
+) {
+  if (src == dst) {
+    for (; first != last; first += stride) {
+      std::memcpy(first, val, stride);
+    }
+  } else {
+    // 绑定布局转换函数
+    auto trans = match_attachment_transition_function(src, dst);
+    for (; first != last; first += stride) {
+      trans(val, first);
+    }
+  }
+}
+
+void graphics_pipeline_impl::clear_color_attachment(render_pass::state &state, attachment_reference ref) {
+  // 根据附件类型选定清除值
+  auto src_format = format::undefined;
+  const std::byte *src = nullptr;
+  if (is_float_format(ref.format)) {
+    src_format = format::RGBA32f;
+    src = reinterpret_cast<const std::byte *>(&state.m_clear_values[ref.id].color.f);
+  } else if (is_unsigned_integer_format(ref.format)) {
+    src_format = format::RGBA32u;
+    src = reinterpret_cast<const std::byte *>(&state.m_clear_values[ref.id].color.u);
+  }
+
+  auto dst_stride = format_size(ref.format);
+  auto dst = state.m_frame_buffer->attachement(ref.id);
+  auto dst_ed = dst + state.m_frame_buffer->width() * state.m_frame_buffer->height() * dst_stride;
+  clear_by_format(src_format, ref.format, dst, dst_ed, src, dst_stride);
+}
+
+void graphics_pipeline_impl::clear_depth_attachment(render_pass::state &state, attachment_reference ref) {
+  // 根据附件类型选定清除值
+  auto src_format = format::undefined;
+  const std::byte *src = nullptr;
+  if (is_float_format(ref.format)) {
+    src_format = format::R32f;
+    src = reinterpret_cast<const std::byte *>(&state.m_clear_values[ref.id].depth_stencil.depth);
+  }
+
+  auto dst = state.m_frame_buffer->attachement(ref.id);
+  auto dst_stride = format_size(ref.format);
+  auto dst_ed = dst + state.m_frame_buffer->width() * state.m_frame_buffer->height() * dst_stride;
+  clear_by_format(src_format, ref.format, dst, dst_ed, src, dst_stride);
+}
+
 void graphics_pipeline_impl::draw(
     render_pass::state &state,
     std::uint32_t vertex_count, std::uint32_t instance_count,
     std::uint32_t first_vertex, std::uint32_t first_instance
 ) {
   {
+    // 对所有颜色附件应用清除值
     auto it = state.m_current_subpass->color_attachments;
     auto ed = it + state.m_current_subpass->color_attachments_count;
-    auto clear_it = state.m_clear_values;
     for (; it != ed; ++it) {
       auto &desc = state.m_attachment_descriptions[it->id];
       if (desc.load_op == attachment_load_op::clear) {
-        // 颜色附件指针
-        auto dst = state.m_frame_buffer->attachement(it->id);
-        auto dst_stride = format_size(it->format);
-        auto dst_ed = dst + state.m_frame_buffer->width() * state.m_frame_buffer->height() * dst_stride;
-        auto src_format = format::undefined;
-        const std::byte *src = nullptr;
-        if (is_float_format(it->format)) {
-          src_format = format::RGBA32f;
-          src = reinterpret_cast<const std::byte *>(&state.m_clear_values[it->id].color.f);
-        } else if (is_unsigned_integer_format(it->format)) {
-          src_format = format::RGBA32u;
-          src = reinterpret_cast<const std::byte *>(&state.m_clear_values[it->id].color.u);
-        }
-        auto trans = match_attachment_transition_function(src_format, it->format);
-        for (; dst != dst_ed; dst += dst_stride) {
-          trans(src, dst);
-        }
+        clear_color_attachment(state, *it);
       }
+    }
+  }
+
+  {
+    // 对深度附件应用清除值
+    auto ref = *state.m_current_subpass->depth_stencil_attachment;
+    auto &desc = state.m_attachment_descriptions[ref.id];
+    if (desc.stencil_load_op == attachment_load_op::clear) {
+      clear_depth_attachment(state, ref);
     }
   }
 
