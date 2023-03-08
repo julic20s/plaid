@@ -318,15 +318,15 @@ static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
       // near
       {0, 0, -1, 1},
       // far
-      {0, 0, 1, 0},
+      {0, 0, 1, 1},
       // left
       {1, 0, 0, 1},
       // right
       {-1, 0, 0, 1},
       // top
-      {0, 1, 0, 1},
-      // bottom
       {0, -1, 0, 1},
+      // bottom
+      {0, 1, 0, 1},
   };
 
   vec4 queue[2][6];
@@ -513,9 +513,13 @@ void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state,
     auto *view_it = view;
     auto *z_it = z;
     for (auto v : clip_coord) {
+      // CLIP -> NDC -> VIEW
+      // [-w, w] -> [-1, 1] -> [0, w]
       view_it->x = (v->x / v->w + 1.f) / 2 * width;
+      // [-w, w] -> [-1, 1] -> [0, h]
       view_it->y = (v->y / v->w + 1.f) / 2 * height;
-      *z_it = v->z / v->w;
+      // [-w, w] -> [0, 1]
+      *z_it = (v->z / v->w + 1.f) / 2;
       ++view_it;
       ++z_it;
     }
