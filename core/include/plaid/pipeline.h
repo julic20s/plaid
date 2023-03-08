@@ -34,18 +34,11 @@ public:
 
   graphics_pipeline(const graphics_pipeline &) = delete;
 
-  graphics_pipeline(graphics_pipeline &&mov) noexcept {
-    m_pointer = mov.m_pointer;
-    mov.m_pointer = nullptr;
-  }
+  graphics_pipeline(graphics_pipeline &&) noexcept;
 
   ~graphics_pipeline();
 
-  graphics_pipeline &operator=(graphics_pipeline &&mov) noexcept {
-    m_pointer = mov.m_pointer;
-    mov.m_pointer = nullptr;
-    return *this;
-  }
+  graphics_pipeline &operator=(graphics_pipeline &&) noexcept;
 
   /// 转换为原生指针
   [[nodiscard]] inline operator graphics_pipeline_impl *() noexcept { return m_pointer; }

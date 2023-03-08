@@ -11,10 +11,19 @@ graphics_pipeline::graphics_pipeline(const graphics_pipeline::create_info &info)
   m_pointer = new graphics_pipeline_impl(info);
 }
 
+graphics_pipeline::graphics_pipeline(graphics_pipeline &&mov) noexcept {
+  m_pointer = mov.m_pointer;
+  mov.m_pointer = nullptr;
+}
+
 graphics_pipeline::~graphics_pipeline() {
   if (m_pointer) {
     delete m_pointer;
   }
+}
+
+graphics_pipeline &graphics_pipeline::operator=(graphics_pipeline &&mov) noexcept {
+  return *new (this) graphics_pipeline(static_cast<graphics_pipeline &&>(mov));
 }
 
 graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_info &info) {
