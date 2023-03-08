@@ -357,10 +357,7 @@ static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
     pre = now;
   }
 
-  for (auto it = queue[pre], ed = it + cnt[pre]; it != ed; ++it, ++dst) {
-    *dst = *it;
-  }
-
+  std::copy_n(queue[pre], cnt[pre], dst);
   return cnt[pre];
 }
 
