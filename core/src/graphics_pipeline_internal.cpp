@@ -265,6 +265,12 @@ void graphics_pipeline_impl::draw(
     std::uint32_t vertex_count, std::uint32_t instance_count,
     std::uint32_t first_vertex, std::uint32_t first_instance
 ) {
+  auto width = state.m_frame_buffer->width();
+  auto height = state.m_frame_buffer->height();
+  [[unlikely]] if (!width || !height) {
+    return;
+  }
+
   {
     // 对所有颜色附件应用清除值
     auto it = state.m_current_subpass->color_attachments;
@@ -500,11 +506,9 @@ void graphics_pipeline_impl::invoke_vertex_shader(
 }
 
 void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, const vec4 *const (&clip_coord)[3]) {
-  auto width = state.m_frame_buffer->width();
-  auto height = state.m_frame_buffer->height();
-  [[unlikely]] if (!width || !height) {
-    return;
-  }
+  auto frame = state.m_frame_buffer;
+  auto width = frame->width();
+  auto height = frame->height();
 
   vec2 view[3];
   float z[3];
@@ -543,7 +547,7 @@ void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, const
   auto um = cross(ac, pa);
   auto vm = cross(pa, ab);
 
-  auto depth_stencil_attachment = state.m_frame_buffer->attachement(
+  auto depth_stencil_attachment = frame->attachement(
       state.m_current_subpass->depth_stencil_attachment->id
   );
 
@@ -598,13 +602,13 @@ void graphics_pipeline_impl::invoke_fragment_shader(
       m_fragment_shader_output, nullptr
   );
 
-  auto frame_buffer = state.m_frame_buffer;
+  auto frame = state.m_frame_buffer;
   auto it = m_fragment_output, ed = it + m_counts.fragment_output;
   for (; it != ed; ++it) {
     if (!it->attachment_stride) {
       continue;
     }
-    auto ptr = frame_buffer->attachement(it->attachment_id) + index * it->attachment_stride;
+    auto ptr = frame->attachement(it->attachment_id) + index * it->attachment_stride;
     it->attachment_transition(m_fragment_shader_output[it->location], ptr);
   }
 }
