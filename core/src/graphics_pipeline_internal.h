@@ -19,41 +19,44 @@ public:
   ~graphics_pipeline_impl();
 
   void draw(
-      plaid::render_pass::state &,
+      const plaid::render_pass::state &,
       std::uint32_t vertex_count, std::uint32_t instance_count,
       std::uint32_t first_vertex, std::uint32_t first_instance
   );
 
 private:
 
-  static void clear_color_attachment(render_pass::state &, attachment_reference);
+  static void clear_color_attachment(const render_pass::state &, attachment_reference);
 
-  static void clear_depth_attachment(render_pass::state &, attachment_reference);
+  static void clear_depth_attachment(const render_pass::state &, attachment_reference);
 
   void draw_triangle_list(
-      render_pass::state &,
+      const render_pass::state &,
       std::uint32_t first_vert, std::uint32_t last_vert,
       std::uint32_t first_inst, std::uint32_t last_inst
   );
 
   void draw_triangle_strip(
-      render_pass::state &,
+      const render_pass::state &,
       std::uint32_t first_vert, std::uint32_t last_vert,
       std::uint32_t first_inst, std::uint32_t last_inst
   );
 
   /// 更新逐顶点属性
-  void obtain_next_vertex_attribute(const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t vert_id);
+  void obtain_next_vertex_attribute(const const_memory_array<1 << 8> &vertex_buffer, std::uint32_t vert_id);
 
   /// 更新逐实例属性
-  void obtain_next_instance_attributes(const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t inst_id);
+  void obtain_next_instance_attributes(const const_memory_array<1 << 8> &vertex_buffer, std::uint32_t inst_id);
 
   /// 执行顶点着色器
-  void invoke_vertex_shader(const std::byte *(&descriptor_set)[1 << 8], std::byte *(&output)[1 << 8], vec4 &clip_coord);
+  void invoke_vertex_shader(
+    const const_memory_array<1 << 8> &descriptor_set,
+    const memory_array<1 << 8> &output, vec4 &clip_coord
+  );
 
-  void rasterize_triangle(render_pass::state &, const vec4 *const (&)[3]);
+  void rasterize_triangle(const render_pass::state &, const vec4 *const (&)[3]);
 
-  void invoke_fragment_shader(render_pass::state &, std::uint32_t index, const float (&weight)[3]);
+  void invoke_fragment_shader(const render_pass::state &, std::uint32_t index, const float (&weight)[3]);
 
 public:
 
@@ -61,6 +64,7 @@ public:
   primitive_topology vertex_assembly;
 
 private:
+
   struct {
     /// 顶点着色器逐顶点属性数量
     std::uint16_t vertex_input_per_vertex;

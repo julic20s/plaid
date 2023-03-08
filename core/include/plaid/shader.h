@@ -16,13 +16,22 @@
 
 namespace plaid {
 
+using memory = std::byte *;
+using const_memory = const std::byte *;
+
+template <std::size_t N>
+using memory_array = memory[N];
+
+template <std::size_t N>
+using const_memory_array = const_memory[N];
+
 /// 定义一个着色器输入/输出变量的规格
 struct shader_stage_variable_description {
   /// 变量插值函数
   using interpolation_function = void(
-      const std::byte *(&src)[3],
+      const const_memory_array<3> &src,
       const float (&weight)[3],
-      std::byte *dst
+      memory dst
   );
 
   /// 属性的格式
@@ -49,10 +58,10 @@ struct shader_variables_meta {
 struct shader_module {
   /// 着色器入口函数
   using entry_function = void(
-      const std::byte *(&uniform)[1 << 8],
-      const std::byte *(&input)[1 << 8],
-      std::byte *(&output)[1 << 8],
-      std::byte **mutable_builtin
+      const const_memory_array<1 << 8> &uniform,
+      const const_memory_array<1 << 8> &input,
+      const memory_array<1 << 8> &output,
+      memory *mutable_builtin
   );
 
   virtual ~shader_module() {}
@@ -79,16 +88,17 @@ public:
   /// 用来生成着色器类的入口函数
   template <class Ty, void (Ty::*Entry)()>
   static void entry(
-      const std::byte *(&uniform)[1 << 8],
-      const std::byte *(&input)[1 << 8],
-      std::byte *(&output)[1 << 8],
-      std::byte **mutable_builtin
+      const const_memory_array<1 << 8> &uniform,
+      const const_memory_array<1 << 8> &input,
+      const memory_array<1 << 8> &output,
+      memory *mutable_builtin
   );
 
 private:
-  const std::byte **uniform;
-  const std::byte **input;
-  std::byte **output;
+
+  const const_memory_array<1 << 8> *uniform;
+  const const_memory_array<1 << 8> *input;
+  const memory_array<1 << 8> *output;
 };
 
 /// 顶点着色器基类
@@ -101,15 +111,15 @@ struct fragment_shader : shader {};
 
 template <class Ty, void (Ty::*Entry)()>
 void shader::entry(
-    const std::byte *(&uniform)[1 << 8],
-    const std::byte *(&input)[1 << 8],
-    std::byte *(&output)[1 << 8],
-    std::byte **mutable_builtin
+    const const_memory_array<1 << 8> &uniform,
+    const const_memory_array<1 << 8> &input,
+    const memory_array<1 << 8> &output,
+    memory *mutable_builtin
 ) {
   Ty shader;
-  shader.uniform = uniform;
-  shader.input = input;
-  shader.output = output;
+  shader.uniform = &uniform;
+  shader.input = &input;
+  shader.output = &output;
   if constexpr (std::is_base_of_v<vertex_shader, Ty>) {
     shader.gl_position = reinterpret_cast<vec4 *>(mutable_builtin[0]);
   }
@@ -223,7 +233,7 @@ struct shader::location {
   private:
     template <class MTy>
     static inline void interpolation(
-        const std::byte *(&src)[3], const float (&weight)[3], std::byte *dst
+        const const_memory_array<3> &src, const float (&weight)[3], std::byte *dst
     ) {
       constexpr auto n = std::extent_v<Ty>;
       // 如果是数组类型就递归进行插值
@@ -238,7 +248,8 @@ struct shader::location {
           dst += stride;
         }
       } else {
-        auto &typed = reinterpret_cast<const Ty *(&)[3]>(src);
+        using typed_array = const Ty *const[3];
+        auto &typed = reinterpret_cast<const typed_array &>(src);
         *reinterpret_cast<Ty *>(dst) =
             *typed[0] * weight[0] +
             *typed[1] * weight[1] +
@@ -251,9 +262,8 @@ struct shader::location {
 
     in(dsl_shader_module &m) noexcept {
       // 把自身属性填入数组
-      auto &dst = m.variables_meta.inputs_count;
-      const_cast<shader_stage_variable_description &>(m.variables_meta.inputs[dst++]) =
-          {
+      m.variables_meta.inputs[m.variables_meta.inputs_count++] =
+          shader_stage_variable_description{
               .location = Loc,
               .size = sizeof(Ty),
               .align = alignof(Ty),
@@ -261,9 +271,8 @@ struct shader::location {
           };
     }
 
-    [[nodiscard]] static inline const Ty &
-    get(shader *host) noexcept {
-      return *reinterpret_cast<const Ty *>(host->input[Loc]);
+    [[nodiscard]] static inline const Ty &get(shader *host) noexcept {
+      return *reinterpret_cast<const Ty *const>((*host->input)[Loc]);
     }
   };
 
@@ -273,9 +282,8 @@ struct shader::location {
 
     out(dsl_shader_module &m) noexcept {
       // 把自身属性填入数组
-      auto &dst = m.variables_meta.outputs_count;
-      const_cast<shader_stage_variable_description &>(m.variables_meta.outputs[dst++]) =
-          {
+      m.variables_meta.outputs[m.variables_meta.outputs_count++] =
+          shader_stage_variable_description {
               .format = attribute_format_matcher<Ty>::format,
               .location = Loc,
               .size = sizeof(Ty),
@@ -283,9 +291,8 @@ struct shader::location {
           };
     }
 
-    [[nodiscard]] static inline Ty &
-    get(shader *host) noexcept {
-      return *reinterpret_cast<Ty *>(host->output[Loc]);
+    [[nodiscard]] static inline Ty &get(shader *host) noexcept {
+      return *reinterpret_cast<Ty *const>((*host->output)[Loc]);
     }
   };
 };
@@ -303,7 +310,7 @@ struct shader::binding {
 
     [[nodiscard]] inline static const Ty &
     get(shader *shader) noexcept {
-      return *reinterpret_cast<const Ty *>(shader->uniform[Bd]);
+      return *reinterpret_cast<const Ty *const>((*shader->uniform)[Bd]);
     }
   };
 };

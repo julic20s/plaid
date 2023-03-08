@@ -227,7 +227,7 @@ static void clear_by_format(
   }
 }
 
-void graphics_pipeline_impl::clear_color_attachment(render_pass::state &state, attachment_reference ref) {
+void graphics_pipeline_impl::clear_color_attachment(const render_pass::state &state, attachment_reference ref) {
   // 根据附件类型选定清除值
   auto src_format = format::undefined;
   const std::byte *src = nullptr;
@@ -245,7 +245,7 @@ void graphics_pipeline_impl::clear_color_attachment(render_pass::state &state, a
   clear_by_format(src_format, ref.format, dst, dst_ed, src, dst_stride);
 }
 
-void graphics_pipeline_impl::clear_depth_attachment(render_pass::state &state, attachment_reference ref) {
+void graphics_pipeline_impl::clear_depth_attachment(const render_pass::state &state, attachment_reference ref) {
   // 根据附件类型选定清除值
   auto src_format = format::undefined;
   const std::byte *src = nullptr;
@@ -261,7 +261,7 @@ void graphics_pipeline_impl::clear_depth_attachment(render_pass::state &state, a
 }
 
 void graphics_pipeline_impl::draw(
-    render_pass::state &state,
+    const render_pass::state &state,
     std::uint32_t vertex_count, std::uint32_t instance_count,
     std::uint32_t first_vertex, std::uint32_t first_instance
 ) {
@@ -362,7 +362,7 @@ static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
 }
 
 void graphics_pipeline_impl::draw_triangle_list(
-    render_pass::state &state,
+    const render_pass::state &state,
     std::uint32_t first_vert, std::uint32_t last_vert,
     std::uint32_t first_inst, std::uint32_t last_inst
 ) {
@@ -415,7 +415,7 @@ void graphics_pipeline_impl::draw_triangle_list(
 }
 
 void graphics_pipeline_impl::draw_triangle_strip(
-    render_pass::state &state,
+    const render_pass::state &state,
     std::uint32_t first_vert, std::uint32_t last_vert,
     std::uint32_t first_inst, std::uint32_t last_inst
 ) {
@@ -471,7 +471,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
 }
 
 void graphics_pipeline_impl::obtain_next_vertex_attribute(
-    const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t vert_id
+    const const_memory_array<1 << 8> &vertex_buffer, std::uint32_t vert_id
 ) {
   auto it = m_vertex_input_per_vertex;
   auto ed = it + m_counts.vertex_input_per_vertex;
@@ -482,7 +482,7 @@ void graphics_pipeline_impl::obtain_next_vertex_attribute(
 }
 
 void graphics_pipeline_impl::obtain_next_instance_attributes(
-    const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t inst_id
+    const const_memory_array<1 << 8> &vertex_buffer, std::uint32_t inst_id
 ) {
   auto it = m_vertex_input_per_instance;
   auto ed = it + m_counts.vertex_input_per_instance;
@@ -493,16 +493,16 @@ void graphics_pipeline_impl::obtain_next_instance_attributes(
 }
 
 void graphics_pipeline_impl::invoke_vertex_shader(
-    const std::byte *(&descriptor_set)[1 << 8],
-    std::byte *(&output)[1 << 8],
+    const const_memory_array<1 << 8> &descriptor_set,
+    const memory_array<1 << 8> &output,
     vec4 &clip_coord
 ) {
   // 只有一个内置变量，即裁剪空间坐标
-  auto mutable_builtin = reinterpret_cast<std::byte *>(&clip_coord);
+  auto mutable_builtin = reinterpret_cast<memory>(&clip_coord);
   m_vertex_shader(descriptor_set, m_vertex_shader_input, output, &mutable_builtin);
 }
 
-void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, const vec4 *const (&clip_coord)[3]) {
+void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state, const vec4 *const (&clip_coord)[3]) {
   auto frame = state.m_frame_buffer;
   auto width = frame->width();
   auto height = frame->height();
@@ -577,7 +577,7 @@ void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, const
 }
 
 void graphics_pipeline_impl::invoke_fragment_shader(
-    render_pass::state &state,
+    const render_pass::state &state,
     std::uint32_t index, const float (&weight)[3]
 ) {
   {
@@ -592,10 +592,8 @@ void graphics_pipeline_impl::invoke_fragment_shader(
       it->interpolation(src, weight, m_fragment_shader_input[location]);
     }
   }
-  using const_input = const std::byte *(&)[1 << 8];
-  auto &compat_fragment_shader_input = const_cast<const_input>(m_fragment_shader_input);
   m_fragment_shader(
-      state.m_descriptor_set, compat_fragment_shader_input,
+      state.m_descriptor_set, m_fragment_shader_input,
       m_fragment_shader_output, nullptr
   );
 
