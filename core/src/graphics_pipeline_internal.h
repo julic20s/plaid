@@ -61,33 +61,34 @@ public:
   primitive_topology vertex_assembly;
 
 private:
-  /// 顶点着色器逐顶点属性数量
-  std::uint16_t vertex_input_per_vertex_attributes_count;
-  /// 顶点着色器逐实例属性数量
-  std::uint16_t vertex_input_per_instance_attributes_count;
-  /// 片元着色器属性数量
-  std::uint16_t fragment_attributes_count;
-  /// 片元着色器输出数量
-  std::uint16_t fragment_out_count;
-  /// 颜色附件数量
-  std::uint16_t color_attachments_count;
+  struct {
+    /// 顶点着色器逐顶点属性数量
+    std::uint16_t vertex_input_per_vertex;
+    /// 顶点着色器逐实例属性数量
+    std::uint16_t vertex_input_per_instance;
+    /// 片元着色器属性数量
+    std::uint16_t fragment_input;
+    /// 片元着色器输出数量
+    std::uint16_t fragment_output;
+    /// 颜色附件数量
+    std::uint16_t color_attachments;
+  } m_counts;
 
-  /// 顶点着色器输出/片元着色器输入的堆内存指针
-  std::byte *stage_shader_variables_resource;
-  /// 顶点着色器输出/片元着色器输入堆内存的对齐字节数
-  std::align_val_t stage_shader_variables_resource_align;
-  /// 每个顶点着色器输出变量组和片元着色器输入的字节数，一共有4组，则
-  /// [vertex_shader_output_resource] 指向的缓冲区大小为
-  /// [vertex_shader_output_size] * 4;
-  std::uint32_t stage_shader_variables_size;
+  /// 动态申请出的内存
+  std::byte *m_allocated_memory;
+  /// 动态申请出的内存的对齐字节数
+  std::align_val_t m_allocated_memory_align;
+  /// 申请出的内存分为 4 + 1 块，此值表示前 4 块，每一块的字节数
+  std::uint32_t m_allocated_memory_chunk_size;
 
   /// 顶点着色器入口函数
-  shader_module::entry_function *vertex_shader;
+  shader_module::entry_function *m_vertex_shader;
   /// 顶点着色器入口函数参数 1
-  const std::byte *vertex_shader_input[1 << 8];
+  const std::byte *m_vertex_shader_input[1 << 8];
   /// 顶点着色器入口函数参数 2
-  std::byte *vertex_shader_output[3][1 << 8];
-  struct vertex_attribute_detail {
+  std::byte *m_vertex_shader_output[3][1 << 8];
+
+  struct vertex_input_detail {
     /// 属性的编号
     std::uint8_t location;
     /// 绑定点编号
@@ -98,27 +99,28 @@ private:
     std::uint32_t offset;
   };
   /// 保存顶点着色器逐顶点属性
-  vertex_attribute_detail vertex_input_per_vertex_attributes[1 << 8];
+  vertex_input_detail m_vertex_input_per_vertex[1 << 8];
   /// 保存顶点着色器逐实例属性
-  vertex_attribute_detail vertex_input_per_instance_attributes[1 << 8];
+  vertex_input_detail m_vertex_input_per_instance[1 << 8];
 
   /// 片元着色器入口函数
-  shader_module::entry_function *fragment_shader;
+  shader_module::entry_function *m_fragment_shader;
   /// 片元着色器入口函数参数 1
-  std::byte *fragment_shader_input[1 << 8];
+  std::byte *m_fragment_shader_input[1 << 8];
   /// 片元着色器入口函数参数 2
-  std::byte *fragment_shader_output[1 << 8];
+  std::byte *m_fragment_shader_output[1 << 8];
 
-  struct fragment_attribute_detail {
+  struct fragment_input_detail {
     /// 属性的编号
     std::uint8_t location;
     /// 插值函数
     shader_stage_variable_description::interpolation_function *interpolation;
   };
   /// 保存片元着色器属性
-  fragment_attribute_detail fragment_attributes[1 << 8];
+  fragment_input_detail m_fragment_input[1 << 8];
+
   /// 保存所有片元着色器输出
-  struct fragment_shader_out_detail {
+  struct fragment_output_detail {
     /// 着色器输出变量编号
     std::uint8_t location;
     /// 目标附件编号
@@ -127,7 +129,7 @@ private:
     /// 内存布局变换函数
     attachment_transition_function *attachment_transition;
   };
-  fragment_shader_out_detail fragment_shader_out_details[1 << 8];
+  fragment_output_detail m_fragment_output[1 << 8];
 };
 
 } // namespace plaid

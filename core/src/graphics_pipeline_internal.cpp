@@ -33,8 +33,8 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
   auto &fragment_shader_module = info.shader_stage.fragment_shader;
 
   // 获取顶点着色器入口函数
-  vertex_shader = vertex_shader_module.entry;
-  fragment_shader = fragment_shader_module.entry;
+  m_vertex_shader = vertex_shader_module.entry;
+  m_fragment_shader = fragment_shader_module.entry;
 
   // 把绑定点描述信息放入稀疏表方便快速访问
   const vertex_input_binding_description *vert_in_binding_desc_map[1 << 8];
@@ -55,14 +55,14 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
     for (; it != ed; ++it) {
       auto &binding = *vert_in_binding_desc_map[it->binding];
       if (binding.input_rate == vertex_input_rate::vertex) {
-        vertex_input_per_vertex_attributes[per_vert_cnt++] = {
+        m_vertex_input_per_vertex[per_vert_cnt++] = {
             .location = it->location,
             .binding = it->binding,
             .stride = binding.stride,
             .offset = it->offset,
         };
       } else {
-        vertex_input_per_instance_attributes[per_inst_cnt++] = {
+        m_vertex_input_per_instance[per_inst_cnt++] = {
             .location = it->location,
             .binding = it->binding,
             .stride = binding.stride,
@@ -70,28 +70,26 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
         };
       }
     }
-    vertex_input_per_vertex_attributes_count = per_vert_cnt;
-    vertex_input_per_instance_attributes_count = per_inst_cnt;
+    m_counts.vertex_input_per_vertex = per_vert_cnt;
+    m_counts.vertex_input_per_instance = per_inst_cnt;
   }
 
   {
-    // 为顶点着色器输出分配内存
-
     struct compare_weights {
       std::uint8_t location;
       std::uint32_t align;
       std::uint32_t size;
-    } sorted_attrs[1 << 8];
+    } stage_attrs[1 << 8];
 
-    auto vs_output_cnt = vertex_shader_module.variables_meta.outputs_count;
-    std::uint32_t vertex_shader_output_size = 0;
-    std::uint32_t vs_align = 0;
-    if (vs_output_cnt) {
+    auto vertex_output_cnt = vertex_shader_module.variables_meta.outputs_count;
+    std::uint32_t chunk_size = 0;
+    std::uint32_t chunk_align = 0;
+    if (vertex_output_cnt) {
       {
         // 把类型信息放入待排序数组
         auto it = vertex_shader_module.variables_meta.outputs;
-        auto ed = it + vs_output_cnt;
-        for (auto dst = sorted_attrs; it != ed; ++it, ++dst) {
+        auto ed = it + vertex_output_cnt;
+        for (auto dst = stage_attrs; it != ed; ++it, ++dst) {
           *dst = {
               .location = it->location,
               .align = it->align,
@@ -102,116 +100,113 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
         // 按照 align 排序，则保证构造出来的结构成员间的 padding 和最小
         // 保证去除内存浪费
         std::sort(
-            sorted_attrs, sorted_attrs + vs_output_cnt,
+            stage_attrs, stage_attrs + vertex_output_cnt,
             [](const compare_weights &a, const compare_weights &b) {
               return a.align < b.align;
             }
         );
       }
 
-      for (auto it = sorted_attrs, ed = sorted_attrs + vs_output_cnt; it != ed; ++it) {
-        vertex_shader_output_size = (vertex_shader_output_size + it->align - 1) / it->align * it->align;
+      for (auto it = stage_attrs, ed = stage_attrs + vertex_output_cnt; it != ed; ++it) {
+        chunk_size = (chunk_size + it->align - 1) / it->align * it->align;
         // 先把成员偏移量放到记录数组内
-        auto offset_ptr = reinterpret_cast<std::byte *>(vertex_shader_output_size);
-        for (auto &out : vertex_shader_output) {
+        auto offset_ptr = reinterpret_cast<std::byte *>(chunk_size);
+        for (auto &out : m_vertex_shader_output) {
           out[it->location] = offset_ptr;
         }
-        fragment_shader_input[it->location] = offset_ptr;
-        vertex_shader_output_size += it->size;
+        m_fragment_shader_input[it->location] = offset_ptr;
+        chunk_size += it->size;
       }
 
-      vs_align = sorted_attrs[vs_output_cnt - 1].align;
+      chunk_align = stage_attrs[vertex_output_cnt - 1].align;
     }
 
-    shader_stage_variable_description fragment_shader_output_desc[1 << 8];
-    auto fs_out_cnt = fragment_shader_module.variables_meta.outputs_count;
-    std::size_t fragment_shader_output_size = 0;
-    if (fs_out_cnt) {
-      auto it = fragment_shader_module.variables_meta.outputs;
-      auto ed = it + fs_out_cnt;
-      auto out_it = fragment_shader_output_desc;
-      for (; it != ed; ++it, ++out_it) {
-        *out_it = *it;
+    shader_stage_variable_description fragment_output_desc[1 << 8];
+    auto fragment_output_cnt = fragment_shader_module.variables_meta.outputs_count;
+    std::uint32_t fragment_output_size = 0;
+    // 片元着色器输出的内存对齐
+    std::uint32_t fragment_output_align = 0;
+    if (fragment_output_cnt) {
+      {
+        auto src = fragment_shader_module.variables_meta.outputs;
+        std::copy_n(src, fragment_output_cnt, fragment_output_desc);
       }
+
       using cmp_t = const shader_stage_variable_description;
       std::sort(
-          fragment_shader_output_desc, fragment_shader_output_desc + fs_out_cnt,
+          fragment_output_desc, fragment_output_desc + fragment_output_cnt,
           [](cmp_t &a, cmp_t &b) { return a.align < b.align; }
       );
 
-      for (auto it = fragment_shader_output_desc, ed = it + fs_out_cnt; it != ed; ++it) {
-        fragment_shader_output_size = (fragment_shader_output_size + it->align - 1) / it->align * it->align;
-        auto offset_ptr = reinterpret_cast<std::byte *>(fragment_shader_output_size);
-        fragment_shader_output[it->location] = offset_ptr;
-        fragment_shader_output_size += it->size;
+      for (auto it = fragment_output_desc, ed = it + fragment_output_cnt; it != ed; ++it) {
+        fragment_output_size = (fragment_output_size + it->align - 1) / it->align * it->align;
+        auto offset_ptr = reinterpret_cast<std::byte *>(fragment_output_size);
+        m_fragment_shader_output[it->location] = offset_ptr;
+        fragment_output_size += it->size;
       }
+      fragment_output_align = fragment_output_desc[fragment_output_cnt - 1].align;
     }
 
-    // 片元着色器输出的内存对齐
-    auto fs_align = fragment_shader_output_desc[fs_out_cnt - 1].align;
     // 片元着色器输出在这块堆内存的偏移
-    auto fs_offset = (vertex_shader_output_size * 4 + fs_align - 1) / fs_align * fs_align;
-    // 整个输出结构的内存对齐
-    auto tot_align = (std::max)(vs_align, fs_align);
+    auto fragment_output_offset = (chunk_size * 4 + fragment_output_align - 1) /
+                                  fragment_output_align * fragment_output_align;
+
     // 整个输出结构的字节大小
-    auto tot_size = fs_offset + fragment_shader_output_size;
+    auto allocating_size = fragment_output_offset + fragment_output_size;
 
     // 申请内存
-    stage_shader_variables_resource_align = std::align_val_t(tot_align);
-    stage_shader_variables_resource = reinterpret_cast<std::byte *>(
-        ::operator new(tot_size, stage_shader_variables_resource_align)
+    m_allocated_memory_align = std::align_val_t((std::max)(chunk_align, fragment_output_align));
+    m_allocated_memory = reinterpret_cast<std::byte *>(
+        ::operator new(allocating_size, m_allocated_memory_align)
     );
 
-    for (auto it = sorted_attrs, ed = sorted_attrs + vs_output_cnt; it != ed; ++it) {
+    {
       // 整个输出结构的偏移量
-      auto offset = reinterpret_cast<std::ptrdiff_t>(stage_shader_variables_resource);
-      for (auto &o : vertex_shader_output) {
-        o[it->location] += offset;
-        offset += vertex_shader_output_size;
+      auto offset = reinterpret_cast<std::ptrdiff_t>(m_allocated_memory);
+      for (auto it = stage_attrs, ed = stage_attrs + vertex_output_cnt; it != ed; ++it) {
+        for (auto &out : m_vertex_shader_output) {
+          out[it->location] += offset;
+          offset += chunk_size;
+        }
+        m_fragment_shader_input[it->location] += offset;
       }
-      fragment_shader_input[it->location] += offset;
-    }
 
-    for (auto it = fragment_shader_output_desc, ed = it + fs_out_cnt; it != ed; ++it) {
-      auto offset = reinterpret_cast<std::ptrdiff_t>(stage_shader_variables_resource);
-      fragment_shader_output[it->location] += fs_offset + offset;
+      for (auto it = fragment_output_desc, ed = it + fragment_output_cnt; it != ed; ++it) {
+        m_fragment_shader_output[it->location] += fragment_output_offset + offset;
+      }
     }
   }
 
+  m_counts.fragment_input = fragment_shader_module.variables_meta.inputs_count;
+  m_counts.fragment_output = fragment_shader_module.variables_meta.outputs_count;
+
   {
-    // 把片元着色器的输入结构保存下来
-    fragment_attributes_count = fragment_shader_module.variables_meta.inputs_count;
-    auto it = fragment_shader_module.variables_meta.inputs;
-    auto ed = it + fragment_attributes_count;
-    auto attr_it = fragment_attributes;
-    for (; it != ed; ++it) {
-      attr_it->location = it->location;
-      attr_it->interpolation = it->interpolation;
-    }
+    auto src = fragment_shader_module.variables_meta.inputs;
+    auto src_ed = src + m_counts.fragment_input;
+    std::transform(src, src_ed, m_fragment_input, [](const plaid::shader_stage_variable_description &d) {
+      return fragment_input_detail{d.location, d.interpolation};
+    });
   }
 
   {
     auto &subpass = info.render_pass.subpass(info.subpass);
-    fragment_out_count = fragment_shader_module.variables_meta.outputs_count;
-    auto it = fragment_shader_module.variables_meta.outputs;
-    auto ed = it + fragment_out_count;
-    auto out_it = fragment_shader_out_details;
-    for (; it != ed; ++it, ++out_it) {
-      auto &attachment = subpass.color_attachments[it->location];
-      out_it->location = it->location;
-      out_it->attachment_id = attachment.id;
-      if (info.render_pass.attachment(attachment.id).store_op == attachment_store_op::store) {
-        out_it->attachment_stride = format_size(attachment.format);
-      } else {
-        out_it->attachment_stride = 0;
-      }
-      out_it->attachment_transition = match_attachment_transition_function(it->format, attachment.format);
-    }
+
+    auto src = fragment_shader_module.variables_meta.outputs;
+    auto src_ed = src + m_counts.fragment_output;
+    std::transform(src, src_ed, m_fragment_output, [&](const plaid::shader_stage_variable_description &d) {
+      auto &attachment = subpass.color_attachments[d.location];
+      auto should_store = info.render_pass.attachment(attachment.id).store_op == attachment_store_op::store;
+      return fragment_output_detail{
+          .location = d.location,
+          .attachment_id = attachment.id,
+          .attachment_stride = format_size(attachment.format) * should_store,
+          .attachment_transition = match_attachment_transition_function(d.format, attachment.format)};
+    });
   }
 }
 
 graphics_pipeline_impl::~graphics_pipeline_impl() {
-  ::operator delete(stage_shader_variables_resource, stage_shader_variables_resource_align);
+  ::operator delete(m_allocated_memory, m_allocated_memory_align);
 }
 
 static void clear_by_format(
@@ -327,7 +322,7 @@ static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
       // bottom
       {0, -1, 0, 1},
   };
-  
+
   vec4 queue[2][6];
   {
     auto it = queue[0];
@@ -388,7 +383,7 @@ void graphics_pipeline_impl::draw_triangle_list(
     vec4 *target[3];
     target[0] = clipped;
     while (1) {
-      auto it = vertex_shader_output;
+      auto it = m_vertex_shader_output;
       auto coord_it = clip_coords;
       for (auto i : indices) {
         obtain_next_vertex_attribute(vertex_buffer, i);
@@ -440,7 +435,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
     for (auto i : indices) {
       // 顶点编号刚好对应数据位置，而下面的 while 循环则不能如此
       obtain_next_vertex_attribute(vertex_buffer, i);
-      invoke_vertex_shader(state.m_descriptor_set, vertex_shader_output[i], clip_coords[i]);
+      invoke_vertex_shader(state.m_descriptor_set, m_vertex_shader_output[i], clip_coords[i]);
     }
 
     vec4 clipped[6];
@@ -464,7 +459,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
       obtain_next_vertex_attribute(vertex_buffer, indices[ping_pong]);
       invoke_vertex_shader(
           state.m_descriptor_set,
-          vertex_shader_output[ping_pong],
+          m_vertex_shader_output[ping_pong],
           clip_coords[ping_pong]
       );
       ping_pong = (ping_pong + 1) % 3;
@@ -475,22 +470,22 @@ void graphics_pipeline_impl::draw_triangle_strip(
 void graphics_pipeline_impl::obtain_next_vertex_attribute(
     const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t vert_id
 ) {
-  auto it = vertex_input_per_vertex_attributes;
-  auto ed = it + vertex_input_per_vertex_attributes_count;
+  auto it = m_vertex_input_per_vertex;
+  auto ed = it + m_counts.vertex_input_per_vertex;
   for (; it != ed; ++it) {
     auto ptr = vertex_buffer[it->binding] + it->stride * vert_id + it->offset;
-    vertex_shader_input[it->location] = ptr;
+    m_vertex_shader_input[it->location] = ptr;
   }
 }
 
 void graphics_pipeline_impl::obtain_next_instance_attributes(
     const std::byte *(&vertex_buffer)[1 << 8], std::uint32_t inst_id
 ) {
-  auto it = vertex_input_per_instance_attributes;
-  auto ed = it + vertex_input_per_instance_attributes_count;
+  auto it = m_vertex_input_per_instance;
+  auto ed = it + m_counts.vertex_input_per_instance;
   for (; it != ed; ++it) {
     auto ptr = vertex_buffer[it->binding] + it->stride * inst_id + it->offset;
-    vertex_shader_input[it->location] = ptr;
+    m_vertex_shader_input[it->location] = ptr;
   }
 }
 
@@ -501,7 +496,7 @@ void graphics_pipeline_impl::invoke_vertex_shader(
 ) {
   // 只有一个内置变量，即裁剪空间坐标
   auto mutable_builtin = reinterpret_cast<std::byte *>(&clip_coord);
-  vertex_shader(descriptor_set, vertex_shader_input, output, &mutable_builtin);
+  m_vertex_shader(descriptor_set, m_vertex_shader_input, output, &mutable_builtin);
 }
 
 void graphics_pipeline_impl::rasterize_triangle(render_pass::state &state, const vec4 *const (&clip_coord)[3]) {
@@ -585,31 +580,31 @@ void graphics_pipeline_impl::invoke_fragment_shader(
     std::uint32_t index, const float (&weight)[3]
 ) {
   {
-    auto it = fragment_attributes, ed = it + fragment_attributes_count;
+    auto it = m_fragment_input, ed = it + m_counts.fragment_input;
     for (; it != ed; ++it) {
       auto location = it->location;
       const std::byte *src[3] = {
-          vertex_shader_output[0][location],
-          vertex_shader_output[1][location],
-          vertex_shader_output[2][location],
+          m_vertex_shader_output[0][location],
+          m_vertex_shader_output[1][location],
+          m_vertex_shader_output[2][location],
       };
-      it->interpolation(src, weight, fragment_shader_input[location]);
+      it->interpolation(src, weight, m_fragment_shader_input[location]);
     }
   }
   using const_input = const std::byte *(&)[1 << 8];
-  auto &compat_fragment_shader_input = const_cast<const_input>(fragment_shader_input);
-  fragment_shader(
+  auto &compat_fragment_shader_input = const_cast<const_input>(m_fragment_shader_input);
+  m_fragment_shader(
       state.m_descriptor_set, compat_fragment_shader_input,
-      fragment_shader_output, nullptr
+      m_fragment_shader_output, nullptr
   );
 
   auto frame_buffer = state.m_frame_buffer;
-  auto it = fragment_shader_out_details, ed = it + fragment_out_count;
+  auto it = m_fragment_output, ed = it + m_counts.fragment_output;
   for (; it != ed; ++it) {
     if (!it->attachment_stride) {
       continue;
     }
     auto ptr = frame_buffer->attachement(it->attachment_id) + index * it->attachment_stride;
-    it->attachment_transition(fragment_shader_output[it->location], ptr);
+    it->attachment_transition(m_fragment_shader_output[it->location], ptr);
   }
 }
