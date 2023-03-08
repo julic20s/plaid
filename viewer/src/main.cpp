@@ -2,9 +2,11 @@
 
 #include <iostream>
 #include <memory>
+#include <numbers>
 
 #include <plaid.h>
 
+#include "camera.h"
 #include "obj_model.h"
 #include "triangle.hpp"
 #include "window.h"
@@ -14,6 +16,9 @@ plaid::graphics_pipeline viewer_pipeline;
 plaid::frame_buffer viewer_frame_buffer;
 std::unique_ptr<float[]> depth_buffer;
 std::uint32_t size;
+
+camera viewer_cam({0.5, 0.5, -2}, {0.5, 0.5, 0.5}, 2, std::numbers::pi / 3, 1);
+plaid::mat4x4 mvp;
 
 /// 初始化渲染通道
 void initialize_render_pass() {
@@ -102,6 +107,8 @@ void recreate_frame_buffer(std::uint32_t *color, std::uint32_t width, std::uint3
   viewer_frame_buffer = plaid::frame_buffer(
       2, attachements, width, height
   );
+  viewer_cam.ratio() = float(width) / height;
+  mvp = viewer_cam.create_projection() * viewer_cam.create_view();
 }
 
 void render(const obj_model &model) {
@@ -113,7 +120,7 @@ void render(const obj_model &model) {
           .depth = 0.f,
       },
   };
-  plaid::clear_value clear_values[] {color_clear, color_clear};
+  plaid::clear_value clear_values[]{color_clear, color_clear};
   plaid::render_pass::state::begin_info begin_info{
       .render_pass = viewer_render_pass,
       .frame_buffer = viewer_frame_buffer,
@@ -123,6 +130,7 @@ void render(const obj_model &model) {
 
   plaid::render_pass::state state(begin_info);
   state.bind_descriptor_set(0, reinterpret_cast<const std::byte *>(model.positions()));
+  state.bind_descriptor_set(1, reinterpret_cast<const std::byte *>(&mvp));
   state.bind_vertex_buffer(0, reinterpret_cast<const std::byte *>(model.vertices()));
   state.draw(viewer_pipeline, model.size(), 1, 0, 0);
   state.next_subpass();

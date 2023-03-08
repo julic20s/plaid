@@ -177,9 +177,14 @@ template <vec Ty>
 }
 
 template <vec Ty>
-[[nodiscard]] constexpr vec3
+[[nodiscard]] constexpr auto
 operator*(float a, Ty b) noexcept {
   return b * a;
+}
+
+template <vec Ty>
+[[nodiscard]] constexpr auto norm(Ty v) {
+  return v / abs(v);
 }
 
 } // namespace plaid
