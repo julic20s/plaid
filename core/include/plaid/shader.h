@@ -94,6 +94,11 @@ public:
       memory *mutable_builtin
   );
 
+  template <class Ty>
+  [[nodiscard]] inline decltype(auto) get(Ty &ref) noexcept {
+    return ref.get(this);
+  }
+
 private:
 
   const const_memory_array<1 << 8> *uniform;
