@@ -5,11 +5,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#include <type_traits>
-
 #include "format.h"
 
 #ifdef PLAID_SHADER_DSL
+#include <type_traits>
+
 #include "mat.h"
 #include "vec.h"
 #endif
