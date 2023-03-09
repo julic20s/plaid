@@ -112,15 +112,14 @@ void recreate_frame_buffer(std::uint32_t *color, std::uint32_t width, std::uint3
 }
 
 void render(const obj_model &model) {
-  plaid::clear_value color_clear{
-      .color{
+  plaid::clear_value clear_values[]{
+      {.color{
           .u{0, 0, 0, 0},
-      },
-      .depth_stencil{
+      }},
+      {.depth_stencil{
           .depth = 1.f,
-      },
+      }},
   };
-  plaid::clear_value clear_values[]{color_clear, color_clear};
   plaid::render_pass::state::begin_info begin_info{
       .render_pass = viewer_render_pass,
       .frame_buffer = viewer_frame_buffer,
@@ -149,6 +148,22 @@ void print_fps() {
     previous_tick = tick;
   }
 }
+
+struct plaid_viewer_window_events : window::events {
+
+  void surface_recreate(window &w, std::uint32_t width, std::uint32_t height) override {
+    recreate_frame_buffer(w.surface(), width, height);
+  }
+
+  void mouse_wheel(window &, std::int16_t distance) override {
+    viewer_cam.dolly() += distance * 0.01f;
+    mvp = viewer_cam.create_projection() * viewer_cam.create_view();
+  }
+
+  void mouse_move(window &, short x, short y) override {
+    // TODO
+  }
+};
 
 int main(int argc, const char *argv[]) {
   std::ios::sync_with_stdio(false);
@@ -181,20 +196,8 @@ int main(int argc, const char *argv[]) {
     return 0;
   }
 
-  window.on_surface_recreate([](class window &w, std::uint32_t width, std::uint32_t height) {
-    recreate_frame_buffer(w.surface(), width, height);
-  });
-
-  window.on_mouse_wheel([](class window &w, std::int32_t distance) {
-    viewer_cam.dolly() += distance * 0.01f;
-    mvp = viewer_cam.create_projection() * viewer_cam.create_view();
-  });
-
-  window.on_mouse_move([] (class window &w, short old_x, short old_y, short x, short y) {
-    auto dx = x - old_x;
-    viewer_cam.move_hor(dx * .01f);
-    mvp = viewer_cam.create_projection() * viewer_cam.create_view();
-  });
+  plaid_viewer_window_events events;
+  window.bind(events);
 
   initialize();
 
@@ -202,7 +205,7 @@ int main(int argc, const char *argv[]) {
   [[likely]] while (!window.should_close()) {
     // 渲染帧
     render(model);
-    window.commit();
+    window.invalidate();
     print_fps();
     window.poll_events();
   }

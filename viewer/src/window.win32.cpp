@@ -6,48 +6,106 @@
 
 #include "window.h"
 
-class window_state {
+/// WIN32 窗口注册类名
+static constexpr auto window_class_name = TEXT("plaid_window");
+
+/// 提供一个默认空回调
+static window::events g_default_events;
+
+class window::delegate {
 private:
-
-  static void empty_callback(...) noexcept {}
-
-public:
-
-  window_state() noexcept
-      : should_close(false),
-        on_mouse_wheel([](auto &&...) {}),
-        on_surface_recreate([](auto &&...) {}),
-        on_mouse_move([](auto &&...) {}) {}
-
-  bool should_close;
-  short x, y;
-  std::uint32_t width;
-  std::uint32_t height;
-  HWND hwnd;
-  HDC buffer_dc;
-  std::uint32_t *surface;
-  std::function<void(window &, std::uint32_t, std::uint32_t)> on_surface_recreate;
-  std::function<void(window &, std::int32_t)> on_mouse_wheel;
-  std::function<void(window &, short, short, short, short)> on_mouse_move;
 
   static constexpr auto window_state_properties = TEXT("plaid_window_state");
 
-  void inject(HWND hwnd) {
-    this->hwnd = hwnd;
+  static void setup_dpi_awareness_if_possible() {
+    // 需要 Windows 8.1
+    auto lib = LoadLibrary(TEXT("Shcore.dll"));
+    if (!lib) return;
+    reinterpret_cast<decltype(SetProcessDpiAwareness) *>(
+        GetProcAddress(lib, "SetProcessDpiAwareness")
+    )(PROCESS_SYSTEM_DPI_AWARE);
+    FreeLibrary(lib);
+  }
+
+  static void register_window_class() {
+    auto instance = GetModuleHandle(nullptr);
+    const WNDCLASSEX wnd_class{
+        .cbSize = sizeof(WNDCLASSEX),
+        .style = CS_HREDRAW | CS_VREDRAW,
+        .lpfnWndProc = handle_window_message,
+        .cbClsExtra = 0,
+        .cbWndExtra = 0,
+        .hInstance = instance,
+        .hIcon = LoadIcon(instance, IDI_APPLICATION),
+        .hCursor = LoadCursor(NULL, IDC_ARROW),
+        .hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)),
+        .lpszMenuName = nullptr,
+        .lpszClassName = window_class_name,
+        .hIconSm = wnd_class.hIcon,
+    };
+
+    RegisterClassEx(&wnd_class);
+  }
+
+  [[nodiscard]] static delegate *get(HWND hwnd) {
+    return reinterpret_cast<delegate *>(GetProp(hwnd, window_state_properties));
+  }
+
+  static LRESULT CALLBACK handle_window_message(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+    auto state = window::delegate::get(hwnd);
+    if (!state) {
+      return DefWindowProc(hwnd, message, wparam, lparam);
+    }
+    auto events = state->events;
+
+    window delegate(state);
+
+    LRESULT ret = 0;
+    switch (message) {
+      case WM_MOUSEWHEEL:
+        events->mouse_wheel(delegate, HIWORD(wparam));
+        break;
+      case WM_MOUSEMOVE:
+        events->mouse_move(delegate, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+        break;
+      [[unlikely]] case WM_CLOSE:
+        state->should_close = true;
+        break;
+      [[unlikely]] case WM_SIZE:
+        state->recreate_surface(delegate, LOWORD(lparam), HIWORD(lparam));
+        break;
+      default:
+        ret = DefWindowProc(hwnd, message, wparam, lparam);
+        break;
+    }
+
+    /// 提前置空防止被 window 析构函数销毁窗口
+    delegate.m_ptr = nullptr;
+
+    return ret;
+  }
+
+public:
+
+  static void initialize_if_need() {
+    static bool initialized = false;
+    if (!initialized) {
+      register_window_class();
+      setup_dpi_awareness_if_possible();
+      initialized = true;
+    }
+  }
+
+  delegate(HWND hwnd) noexcept : should_close(false), hwnd(hwnd), events(&g_default_events) {
     SetProp(hwnd, window_state_properties, this);
     auto hdc = GetDC(hwnd);
     buffer_dc = CreateCompatibleDC(hdc);
     ReleaseDC(hwnd, hdc);
   }
 
-  void remove() {
-    hwnd = nullptr;
+  ~delegate() {
     RemoveProp(hwnd, window_state_properties);
     DeleteDC(buffer_dc);
-  }
-
-  [[nodiscard]] static window_state &get(HWND hwnd) {
-    return *reinterpret_cast<window_state *>(GetProp(hwnd, window_state_properties));
   }
 
   void recreate_surface(window &wnd, LONG width, LONG height) {
@@ -70,88 +128,22 @@ public:
     this->width = width;
     this->height = height;
 
-    on_surface_recreate(wnd, width, height);
+    events->surface_recreate(wnd, width, height);
   }
 
-  static LRESULT CALLBACK handle_window_message(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
+  bool should_close;
+  std::uint32_t width;
+  std::uint32_t height;
+  std::uint32_t *surface;
+  events *events;
+  const HWND hwnd;
+  HDC buffer_dc;
 };
-
-static auto window_class_name = TEXT("plaid_window");
-
-LRESULT window_state::handle_window_message(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
-  auto &state = window_state::get(hwnd);
-
-  window temp(&state);
-
-  LRESULT ret = 0;
-  switch (message) {
-    case WM_MOUSEWHEEL: {
-      short distance = HIWORD(wparam);
-      state.on_mouse_wheel(temp, distance);
-      break;
-    }
-    case WM_MOUSEMOVE: {
-      auto ox = state.x, oy = state.y;
-      state.x = GET_X_LPARAM(lparam);
-      state.y = GET_Y_LPARAM(lparam);
-      state.on_mouse_move(temp, ox, oy, state.x, state.y);
-      break;
-    }
-    [[unlikely]] case WM_CLOSE:
-      state.should_close = true;
-      break;
-    [[unlikely]] case WM_SIZE:
-      state.recreate_surface(temp, LOWORD(lparam), HIWORD(lparam));
-      break;
-    [[likely]] default:
-      ret = DefWindowProc(hwnd, message, wparam, lparam);
-      break;
-  }
-
-  temp.state = nullptr;
-
-  return ret;
-}
-
-static void register_window_class() {
-  auto instance = GetModuleHandle(nullptr);
-  const WNDCLASSEX wnd_class{
-      .cbSize = sizeof(WNDCLASSEX),
-      .style = CS_HREDRAW | CS_VREDRAW,
-      .lpfnWndProc = window_state::handle_window_message,
-      .cbClsExtra = 0,
-      .cbWndExtra = 0,
-      .hInstance = instance,
-      .hIcon = LoadIcon(instance, IDI_APPLICATION),
-      .hCursor = LoadCursor(NULL, IDC_ARROW),
-      .hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)),
-      .lpszMenuName = nullptr,
-      .lpszClassName = window_class_name,
-      .hIconSm = wnd_class.hIcon,
-  };
-
-  RegisterClassEx(&wnd_class);
-}
-
-static void setup_dpi_awareness_if_possible() {
-  // 需要 Windows 8.1
-  auto lib = LoadLibrary(TEXT("Shcore.dll"));
-  if (!lib) return;
-  reinterpret_cast<decltype(SetProcessDpiAwareness) *>(
-      GetProcAddress(lib, "SetProcessDpiAwareness")
-  )(PROCESS_SYSTEM_DPI_AWARE);
-  FreeLibrary(lib);
-}
 
 window window::create(
     std::string_view title, std::uint32_t width, std::uint32_t height
 ) {
-  static bool initialized = false;
-  if (!initialized) {
-    register_window_class();
-    setup_dpi_awareness_if_possible();
-    initialized = true;
-  }
+  delegate::initialize_if_need();
 
 #ifdef UNICODE
   wchar_t title_data[256];
@@ -189,60 +181,43 @@ window window::create(
 
   if (!hwnd) return nullptr;
 
-  auto state = new window_state();
-  state->inject(hwnd);
-  return state;
+  return new delegate(hwnd);
 }
 
 void window::show() {
-  ShowWindow(state->hwnd, SW_SHOW);
+  ShowWindow(m_ptr->hwnd, SW_SHOW);
 }
 
 bool window::should_close() {
-  return state->should_close;
+  return m_ptr->should_close;
 }
 
 std::uint32_t *window::surface() {
-  return state->surface;
+  return m_ptr->surface;
 }
 
-void window::clear_surface(std::uint32_t value) {
-  for (auto it = state->surface, ed = it + state->width * state->height; it != ed; ++it) {
-    *it = value;
-  }
-}
-
-void window::commit() {
-  auto hdc = GetDC(state->hwnd);
-  BitBlt(hdc, 0, 0, state->width, state->height, state->buffer_dc, 0, 0, SRCCOPY);
-  ReleaseDC(state->hwnd, hdc);
+void window::invalidate() {
+  auto hdc = GetDC(m_ptr->hwnd);
+  BitBlt(hdc, 0, 0, m_ptr->width, m_ptr->height, m_ptr->buffer_dc, 0, 0, SRCCOPY);
+  ReleaseDC(m_ptr->hwnd, hdc);
 }
 
 void window::poll_events() {
   MSG msg;
-  if (PeekMessage(&msg, state->hwnd, 0, 0, PM_REMOVE)) {
+  if (PeekMessage(&msg, m_ptr->hwnd, 0, 0, PM_REMOVE)) {
     TranslateMessage(&msg);
     DispatchMessage(&msg);
   }
 }
 
-void window::on_mouse_wheel(std::function<void(window &, std::int32_t)> func) {
-  state->on_mouse_wheel = func;
-}
-
-void window::on_surface_recreate(std::function<void(window &, std::uint32_t, std::uint32_t)> func) {
-  state->on_surface_recreate = func;
-}
-
-void window::on_mouse_move(std::function<void (window &, short, short, short, short)> func) {
-  state->on_mouse_move = func;
-}
-
 void window::destroy() {
-  DestroyWindow(state->hwnd);
-  state->remove();
-  delete state;
-  state = nullptr;
+  DestroyWindow(m_ptr->hwnd);
+  delete m_ptr;
+  m_ptr = nullptr;
+}
+
+void window::bind(events &target) {
+  m_ptr->events = &target;
 }
 
 #endif
