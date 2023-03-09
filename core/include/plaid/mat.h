@@ -8,6 +8,22 @@
 
 namespace plaid {
 
+struct mat3x3 {
+
+  /// 获得指定的某一行
+  /// @param i 行号
+  [[nodiscard]] constexpr vec4 &
+  operator[](std::uint8_t i) noexcept { return r[i]; }
+
+  /// 获得指定的某一行
+  /// @param i 行号
+  [[nodiscard]] constexpr const vec4 &
+  operator[](std::uint8_t i) const noexcept { return r[i]; }
+
+  /// 行向量数组
+  vec4 r[3];
+};
+
 /// 4 * 4 的矩阵，以行主序存储
 struct mat4x4 {
 
@@ -80,6 +96,15 @@ operator*(const mat4x4 &a, vec4 b) noexcept {
       a[1][0] * b.x + a[1][1] * b.y + a[1][2] * b.z + a[1][3] * b.w,
       a[2][0] * b.x + a[2][1] * b.y + a[2][2] * b.z + a[2][3] * b.w,
       a[3][0] * b.x + a[3][1] * b.y + a[3][2] * b.z + a[3][3] * b.w,
+  };
+}
+
+[[nodiscard]] constexpr vec3
+operator*(const mat3x3 &a, vec3 b) noexcept {
+  return {
+    a[0][0] * b.x + a[0][1] * b.y + a[0][2] * b.z,
+    a[1][0] * b.x + a[1][1] * b.y + a[1][2] * b.z,
+    a[2][0] * b.x + a[2][1] * b.y + a[2][2] * b.z,
   };
 }
 

@@ -1,5 +1,9 @@
 #ifdef PLAID_VIEWER_WIN32
 
+#include <ShellScalingApi.h>
+#include <Windows.h>
+#include <Windowsx.h>
+
 #include "window.h"
 
 class window_state {
@@ -12,9 +16,11 @@ public:
   window_state() noexcept
       : should_close(false),
         on_mouse_wheel([](auto &&...) {}),
-        on_surface_recreate([](auto &&...) {}) {}
+        on_surface_recreate([](auto &&...) {}),
+        on_mouse_move([](auto &&...) {}) {}
 
   bool should_close;
+  short x, y;
   std::uint32_t width;
   std::uint32_t height;
   HWND hwnd;
@@ -22,6 +28,7 @@ public:
   std::uint32_t *surface;
   std::function<void(window &, std::uint32_t, std::uint32_t)> on_surface_recreate;
   std::function<void(window &, std::int32_t)> on_mouse_wheel;
+  std::function<void(window &, short, short, short, short)> on_mouse_move;
 
   static constexpr auto window_state_properties = TEXT("plaid_window_state");
 
@@ -81,6 +88,13 @@ LRESULT window_state::handle_window_message(HWND hwnd, UINT message, WPARAM wpar
     case WM_MOUSEWHEEL: {
       short distance = HIWORD(wparam);
       state.on_mouse_wheel(temp, distance);
+      break;
+    }
+    case WM_MOUSEMOVE: {
+      auto ox = state.x, oy = state.y;
+      state.x = GET_X_LPARAM(lparam);
+      state.y = GET_Y_LPARAM(lparam);
+      state.on_mouse_move(temp, ox, oy, state.x, state.y);
       break;
     }
     [[unlikely]] case WM_CLOSE:
@@ -218,6 +232,10 @@ void window::on_mouse_wheel(std::function<void(window &, std::int32_t)> func) {
 
 void window::on_surface_recreate(std::function<void(window &, std::uint32_t, std::uint32_t)> func) {
   state->on_surface_recreate = func;
+}
+
+void window::on_mouse_move(std::function<void (window &, short, short, short, short)> func) {
+  state->on_mouse_move = func;
 }
 
 void window::destroy() {

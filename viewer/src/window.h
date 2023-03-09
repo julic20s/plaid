@@ -3,6 +3,7 @@
 #define PLAID_VIEWER_WINDOW_H_
 
 #include <functional>
+#include <string_view>
 
 struct window_state;
 struct window_surface;
@@ -44,6 +45,8 @@ public:
   void on_mouse_wheel(std::function<void(window &, std::int32_t)>);
 
   void on_surface_recreate(std::function<void(window &, std::uint32_t width, std::uint32_t height)>);
+
+  void on_mouse_move(std::function<void(window &, short, short, short, short)>);
 
   void commit();
 

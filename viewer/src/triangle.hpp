@@ -21,7 +21,7 @@ struct frag : plaid::fragment_shader {
   location<0>::out<plaid::vec3> final_color;
 
   void main() {
-    get(final_color) = plaid::vec3 {1, 1, 1} * gl_fragcoord->z;
+    get(final_color) = plaid::vec3 {1, 1, 1} * (1 - gl_fragcoord->z);
   }
 };
 

@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <stdexcept>
 
+#include <ctime>
+
 #include <plaid/frame_buffer.h>
 
 #include "graphics_pipeline_internal.h"
@@ -316,17 +318,17 @@ static vec4 line_insertion(const vec4 &l, const vec4 &a, const vec4 &b) {
 static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
   static constexpr vec4 clip_planes[]{
       // near
-      {0, 0, -1, 1},
+      {0, 0, 1, 0},
       // far
-      {0, 0, 1, 1},
+      {0, 0, -1, 1},
       // left
       {1, 0, 0, 1},
       // right
       {-1, 0, 0, 1},
       // top
-      {0, -1, 0, 1},
-      // bottom
       {0, 1, 0, 1},
+      // bottom
+      {0, -1, 0, 1},
   };
 
   vec4 queue[2][6];
@@ -468,6 +470,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
       ping_pong = (ping_pong + 1) % 3;
     }
   }
+  printf("vertex: %ld\n", clock());
 }
 
 void graphics_pipeline_impl::obtain_next_vertex_attribute(
@@ -500,6 +503,7 @@ void graphics_pipeline_impl::invoke_vertex_shader(
   // 只有一个内置变量，即裁剪空间坐标
   auto mutable_builtin = reinterpret_cast<memory>(&clip_coord);
   m_vertex_shader(descriptor_set, m_vertex_shader_input, output, &mutable_builtin);
+  
 }
 
 void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state, const vec4 *const (&clip_coord)[3]) {
@@ -514,12 +518,12 @@ void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state,
     auto *z_it = z;
     for (auto v : clip_coord) {
       // CLIP -> NDC -> VIEW
-      // [-w, w] -> [-1, 1] -> [0, w]
+      // [-w, w] -> [-1, 1] -> [0, width]
       view_it->x = (v->x / v->w + 1.f) / 2 * width;
-      // [-w, w] -> [-1, 1] -> [0, h]
+      // [-w, w] -> [-1, 1] -> [0, height]
       view_it->y = (v->y / v->w + 1.f) / 2 * height;
-      // [-w, w] -> [0, 1]
-      *z_it = (v->z / v->w + 1.f) / 2;
+      // [0, w] -> [0, 1]
+      *z_it = v->z / v->w;
       ++view_it;
       ++z_it;
     }
@@ -567,7 +571,7 @@ void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state,
         auto cz = z[0] * weight[0] + z[1] * weight[1] + z[2] * weight[2];
         auto pre_z = reinterpret_cast<float *>(depth_stencil_attachment);
         pre_z += y * width + x;
-        if (cz > *pre_z) {
+        if (cz < *pre_z) {
           *pre_z = cz;
           invoke_fragment_shader(state, {float(x), float(y), cz}, y * width + x, weight);
         }
@@ -578,6 +582,7 @@ void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state,
     um = um_first - ac.x;
     vm = vm_first + ab.x;
   }
+  printf("%ld\n", clock());
 }
 
 void graphics_pipeline_impl::invoke_fragment_shader(

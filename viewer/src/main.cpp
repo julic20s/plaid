@@ -17,7 +17,7 @@ plaid::frame_buffer viewer_frame_buffer;
 std::unique_ptr<float[]> depth_buffer;
 std::uint32_t size;
 
-camera viewer_cam({0.5, 0.5, -2}, {0.5, 0.5, 0.5}, 2, std::numbers::pi / 3, 1);
+camera viewer_cam({2, -1, -1}, {0.5, 0.5, 0.5}, 2, 60, std::numbers::pi / 18, 1);
 plaid::mat4x4 mvp;
 
 /// 初始化渲染通道
@@ -117,7 +117,7 @@ void render(const obj_model &model) {
           .u{0, 0, 0, 0},
       },
       .depth_stencil{
-          .depth = 0.f,
+          .depth = 1.f,
       },
   };
   plaid::clear_value clear_values[]{color_clear, color_clear};
@@ -187,6 +187,12 @@ int main(int argc, const char *argv[]) {
 
   window.on_mouse_wheel([](class window &w, std::int32_t distance) {
     viewer_cam.dolly() += distance * 0.01f;
+    mvp = viewer_cam.create_projection() * viewer_cam.create_view();
+  });
+
+  window.on_mouse_move([] (class window &w, short old_x, short old_y, short x, short y) {
+    auto dx = x - old_x;
+    viewer_cam.move_hor(dx * .01f);
     mvp = viewer_cam.create_projection() * viewer_cam.create_view();
   });
 
