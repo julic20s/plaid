@@ -37,7 +37,10 @@ obj_model::obj_model(const char *file) {
       buf >> trash;
       int cnt = 0;
       vertex v;
-      while (buf >> v.pos_index >> trash >> v.uv_index >> trash >> v.pos_index) {
+      while (buf >> v.pos_index >> trash >> v.uv_index >> trash >> v.norm_index) {
+        --v.pos_index;
+        --v.uv_index;
+        --v.norm_index;
         m_vertices.push_back(v);
         ++cnt;
       }
