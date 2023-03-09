@@ -58,21 +58,21 @@ private:
     }
     auto events = state->events;
 
-    window delegate(state);
+    window wrapper(state);
 
     LRESULT ret = 0;
     switch (message) {
       case WM_MOUSEWHEEL:
-        events->mouse_wheel(delegate, HIWORD(wparam));
+        events->mouse_wheel(wrapper, HIWORD(wparam));
         break;
       case WM_MOUSEMOVE:
-        events->mouse_move(delegate, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+        events->mouse_move(wrapper, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
         break;
       [[unlikely]] case WM_CLOSE:
         state->should_close = true;
         break;
       [[unlikely]] case WM_SIZE:
-        state->recreate_surface(delegate, LOWORD(lparam), HIWORD(lparam));
+        state->recreate_surface(wrapper, LOWORD(lparam), HIWORD(lparam));
         break;
       default:
         ret = DefWindowProc(hwnd, message, wparam, lparam);
@@ -80,7 +80,7 @@ private:
     }
 
     /// 提前置空防止被 window 析构函数销毁窗口
-    delegate.m_ptr = nullptr;
+    wrapper.m_ptr = nullptr;
 
     return ret;
   }
