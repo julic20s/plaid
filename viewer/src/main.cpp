@@ -185,6 +185,11 @@ int main(int argc, const char *argv[]) {
     recreate_frame_buffer(w.surface(), width, height);
   });
 
+  window.on_mouse_wheel([](class window &w, std::int32_t distance) {
+    viewer_cam.dolly() += distance * 0.01f;
+    mvp = viewer_cam.create_projection() * viewer_cam.create_view();
+  });
+
   initialize();
 
   window.show();

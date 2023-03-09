@@ -2,7 +2,18 @@
 
 #include "window.h"
 
-struct window_state {
+class window_state {
+private:
+
+  static void empty_callback(...) noexcept {}
+
+public:
+
+  window_state() noexcept
+      : should_close(false),
+        on_mouse_wheel([](auto &&...) {}),
+        on_surface_recreate([](auto &&...) {}) {}
+
   bool should_close;
   std::uint32_t width;
   std::uint32_t height;
@@ -10,6 +21,7 @@ struct window_state {
   HDC buffer_dc;
   std::uint32_t *surface;
   std::function<void(window &, std::uint32_t, std::uint32_t)> on_surface_recreate;
+  std::function<void(window &, std::int32_t)> on_mouse_wheel;
 
   static constexpr auto window_state_properties = TEXT("plaid_window_state");
 
@@ -31,7 +43,7 @@ struct window_state {
     return *reinterpret_cast<window_state *>(GetProp(hwnd, window_state_properties));
   }
 
-  void recreate_surface(LONG width, LONG height) {
+  void recreate_surface(window &wnd, LONG width, LONG height) {
     BITMAPINFOHEADER bitmap_header{
         .biSize = sizeof(BITMAPINFOHEADER),
         .biWidth = width,
@@ -51,28 +63,40 @@ struct window_state {
     this->width = width;
     this->height = height;
 
-    window temp(this);
-    on_surface_recreate(temp, width, height);
-    temp.state = nullptr;
+    on_surface_recreate(wnd, width, height);
   }
+
+  static LRESULT CALLBACK handle_window_message(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
 };
 
 static auto window_class_name = TEXT("plaid_window");
 
-static LRESULT CALLBACK handle_window_message(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+LRESULT window_state::handle_window_message(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
   auto &state = window_state::get(hwnd);
 
+  window temp(&state);
+
+  LRESULT ret = 0;
   switch (message) {
-    case WM_CLOSE:
+    case WM_MOUSEWHEEL: {
+      short distance = HIWORD(wparam);
+      state.on_mouse_wheel(temp, distance);
+      break;
+    }
+    [[unlikely]] case WM_CLOSE:
       state.should_close = true;
       break;
-    case WM_SIZE:
-      state.recreate_surface(LOWORD(lparam), HIWORD(lparam));
+    [[unlikely]] case WM_SIZE:
+      state.recreate_surface(temp, LOWORD(lparam), HIWORD(lparam));
       break;
     [[likely]] default:
-      return DefWindowProc(hwnd, message, wparam, lparam);
+      ret = DefWindowProc(hwnd, message, wparam, lparam);
+      break;
   }
-  return 0;
+
+  temp.state = nullptr;
+
+  return ret;
 }
 
 static void register_window_class() {
@@ -80,7 +104,7 @@ static void register_window_class() {
   const WNDCLASSEX wnd_class{
       .cbSize = sizeof(WNDCLASSEX),
       .style = CS_HREDRAW | CS_VREDRAW,
-      .lpfnWndProc = handle_window_message,
+      .lpfnWndProc = window_state::handle_window_message,
       .cbClsExtra = 0,
       .cbWndExtra = 0,
       .hInstance = instance,
@@ -151,9 +175,7 @@ window window::create(
 
   if (!hwnd) return nullptr;
 
-  auto state = new window_state{
-      .should_close = false,
-  };
+  auto state = new window_state();
   state->inject(hwnd);
   return state;
 }
@@ -190,7 +212,11 @@ void window::poll_events() {
   }
 }
 
-void window::on_surface_recreate(std::function<void (window &, std::uint32_t, std::uint32_t)> func) {
+void window::on_mouse_wheel(std::function<void(window &, std::int32_t)> func) {
+  state->on_mouse_wheel = func;
+}
+
+void window::on_surface_recreate(std::function<void(window &, std::uint32_t, std::uint32_t)> func) {
   state->on_surface_recreate = func;
 }
 

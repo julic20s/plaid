@@ -41,6 +41,8 @@ public:
 
   void clear_surface(std::uint32_t value);
 
+  void on_mouse_wheel(std::function<void(window &, std::int32_t)>);
+
   void on_surface_recreate(std::function<void(window &, std::uint32_t width, std::uint32_t height)>);
 
   void commit();
