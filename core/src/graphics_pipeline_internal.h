@@ -56,7 +56,7 @@ private:
 
   void rasterize_triangle(const render_pass::state &, const vec4 *const (&)[3]);
 
-  void invoke_fragment_shader(const render_pass::state &, std::uint32_t index, const float (&weight)[3]);
+  void invoke_fragment_shader(const render_pass::state &, vec3 fragcoord, std::uint32_t index, const float (&weight)[3]);
 
 public:
 

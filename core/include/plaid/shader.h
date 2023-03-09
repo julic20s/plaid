@@ -112,7 +112,9 @@ struct vertex_shader : shader {
 };
 
 /// 片元着色器基类
-struct fragment_shader : shader {};
+struct fragment_shader : shader {
+  vec3 *gl_fragcoord;
+};
 
 template <class Ty, void (Ty::*Entry)()>
 void shader::entry(
@@ -127,6 +129,8 @@ void shader::entry(
   shader.output = &output;
   if constexpr (std::is_base_of_v<vertex_shader, Ty>) {
     shader.gl_position = reinterpret_cast<vec4 *>(mutable_builtin[0]);
+  } else if constexpr (std::is_base_of_v<fragment_shader, Ty>) {
+    shader.gl_fragcoord = reinterpret_cast<vec3 *>(mutable_builtin[0]);
   }
   (shader.*Entry)();
 }

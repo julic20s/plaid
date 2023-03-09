@@ -569,7 +569,7 @@ void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state,
         pre_z += y * width + x;
         if (cz > *pre_z) {
           *pre_z = cz;
-          invoke_fragment_shader(state, y * width + x, weight);
+          invoke_fragment_shader(state, {float(x), float(y), cz}, y * width + x, weight);
         }
       }
       um += ac.y;
@@ -582,6 +582,7 @@ void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state,
 
 void graphics_pipeline_impl::invoke_fragment_shader(
     const render_pass::state &state,
+    vec3 fragcoord,
     std::uint32_t index, const float (&weight)[3]
 ) {
   {
@@ -596,9 +597,10 @@ void graphics_pipeline_impl::invoke_fragment_shader(
       it->interpolation(src, weight, m_fragment_shader_input[location]);
     }
   }
+  auto mutable_builtin = reinterpret_cast<memory>(&fragcoord);
   m_fragment_shader(
       state.m_descriptor_set, m_fragment_shader_input,
-      m_fragment_shader_output, nullptr
+      m_fragment_shader_output, &mutable_builtin
   );
 
   auto frame = state.m_frame_buffer;
