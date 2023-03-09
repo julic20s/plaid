@@ -1,8 +1,6 @@
 #include <algorithm>
 #include <stdexcept>
 
-#include <ctime>
-
 #include <plaid/frame_buffer.h>
 
 #include "graphics_pipeline_internal.h"
@@ -470,7 +468,6 @@ void graphics_pipeline_impl::draw_triangle_strip(
       ping_pong = (ping_pong + 1) % 3;
     }
   }
-  printf("vertex: %ld\n", clock());
 }
 
 void graphics_pipeline_impl::obtain_next_vertex_attribute(
@@ -582,7 +579,6 @@ void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state,
     um = um_first - ac.x;
     vm = vm_first + ab.x;
   }
-  printf("%ld\n", clock());
 }
 
 void graphics_pipeline_impl::invoke_fragment_shader(

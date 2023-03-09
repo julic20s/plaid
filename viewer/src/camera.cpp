@@ -13,9 +13,7 @@ camera::camera(
   if (m_gaze.y) {
     auto dir = m_gaze.y > 0 ? -1 : 1;
     m_top = plaid::vec3{m_gaze.x, (m_dolly * m_dolly / abs(m_gaze.y)) * dir + m_gaze.y, m_gaze.z} * -dir;
-    printf("%f ", plaid::dot(m_top, m_gaze));
     m_top = plaid::norm(m_top);
-    printf("%f", plaid::dot(m_top, m_gaze));
   } else {
     m_top = {0, -1, 0};
   }
