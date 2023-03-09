@@ -12,6 +12,3 @@ message(STATUS "PLAID_VIEWER_WIN32=${WIN32}")
 if (WIN32)
     target_compile_definitions(plaid PUBLIC -DPLAID_VIEWER_WIN32)
 endif()
-
-# 预编译头文件
-target_precompile_headers(plaid_viewer PRIVATE src/pch.h)
