@@ -76,16 +76,16 @@ private:
       }
       case WM_KEYDOWN:
       printf("%llx", wparam);
-        state->m_keys.m_flag |= key_state::up * (wparam == VK_UP);
-        state->m_keys.m_flag |= key_state::down * (wparam == VK_DOWN);
-        state->m_keys.m_flag |= key_state::left * (wparam == VK_LEFT);
-        state->m_keys.m_flag |= key_state::right * (wparam == VK_RIGHT);
+        state->keys.m_flag |= key_state::up * (wparam == VK_UP);
+        state->keys.m_flag |= key_state::down * (wparam == VK_DOWN);
+        state->keys.m_flag |= key_state::left * (wparam == VK_LEFT);
+        state->keys.m_flag |= key_state::right * (wparam == VK_RIGHT);
         break;
       case WM_KEYUP:
-        state->m_keys.m_flag &= ~key_state::up | -(wparam != VK_UP);
-        state->m_keys.m_flag &= ~key_state::down | -(wparam != VK_DOWN);
-        state->m_keys.m_flag &= ~key_state::left | -(wparam != VK_LEFT);
-        state->m_keys.m_flag &= ~key_state::right | -(wparam != VK_RIGHT);
+        state->keys.m_flag &= ~key_state::up | -(wparam != VK_UP);
+        state->keys.m_flag &= ~key_state::down | -(wparam != VK_DOWN);
+        state->keys.m_flag &= ~key_state::left | -(wparam != VK_LEFT);
+        state->keys.m_flag &= ~key_state::right | -(wparam != VK_RIGHT);
         break;
       [[unlikely]] case WM_CLOSE:
         state->should_close = true;
@@ -115,7 +115,7 @@ public:
     }
   }
 
-  delegate(HWND hwnd) noexcept : should_close(false), hwnd(hwnd), events(&g_default_events), m_keys{} {
+  delegate(HWND hwnd) noexcept : should_close(false), hwnd(hwnd), events(&g_default_events), keys{} {
     SetProp(hwnd, window_state_properties, this);
     auto hdc = GetDC(hwnd);
     buffer_dc = CreateCompatibleDC(hdc);
@@ -158,7 +158,7 @@ public:
   const HWND hwnd;
   HDC buffer_dc;
 
-  key_state m_keys;
+  key_state keys;
 };
 
 window window::create(
@@ -232,7 +232,7 @@ void window::poll_events() {
 }
 
 const window::key_state &window::keys() const {
-  return m_ptr->m_keys;
+  return m_ptr->keys;
 }
 
 void window::destroy() {
