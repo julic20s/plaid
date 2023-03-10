@@ -20,11 +20,11 @@ void plaid::RGBA32f_to_BGRA8u(const std::byte *src, std::byte *dst) {
 }
 
 void plaid::RGBA32u_to_BGRA8u(const std::byte *src, std::byte *dst) {
-  auto final_color = *reinterpret_cast<const std::uint32_t *>(src);
-  auto r = (final_color & 0x000000ff);
-  auto g = (final_color & 0x0000ff00) >> 8;
-  auto b = (final_color & 0x00ff0000) >> 16;
-  auto a = (final_color & 0xff000000) >> 24;
+  auto final_color = reinterpret_cast<const std::uint32_t *>(src);
+  std::uint8_t r = final_color[0];
+  std::uint8_t g = final_color[1];
+  std::uint8_t b = final_color[2];
+  std::uint8_t a = final_color[3];
   *reinterpret_cast<std::uint32_t *>(dst) = a << 24 | r << 16 | g << 8 | b;
 }
 
