@@ -75,7 +75,6 @@ private:
         break;
       }
       case WM_KEYDOWN:
-      printf("%llx", wparam);
         state->keys.m_flag |= key_state::up * (wparam == VK_UP);
         state->keys.m_flag |= key_state::down * (wparam == VK_DOWN);
         state->keys.m_flag |= key_state::left * (wparam == VK_LEFT);
