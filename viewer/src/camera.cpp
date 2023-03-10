@@ -1,4 +1,13 @@
+#include <plaid/transition.h>
+
 #include "camera.h"
+
+static plaid::vec3 calculate_top(plaid::vec3 g) {
+  if (g.y) {
+    auto s = g.y > 0 ? -1 : 1;
+    return plaid::norm(plaid::vec3{g.x, dot(g, g) / -g.y + g.y, g.z} * -s);
+  } else return {0, -1, 0};
+}
 
 camera::camera(
     const plaid::vec3 &position, const plaid::vec3 &orbit,
@@ -10,35 +19,23 @@ camera::camera(
     m_dolly(abs(m_gaze)),
     m_fovy(fovy),
     m_ratio(ratio) {
-  if (m_gaze.y) {
-    auto dir = m_gaze.y > 0 ? -1 : 1;
-    m_top = plaid::vec3{m_gaze.x, (m_dolly * m_dolly / abs(m_gaze.y)) * dir + m_gaze.y, m_gaze.z} * -dir;
-    m_top = plaid::norm(m_top);
-  } else {
-    m_top = {0, -1, 0};
-  }
+  m_top = calculate_top(m_gaze);
   m_gaze = plaid::norm(m_gaze);
 }
 
-plaid::mat4x4 camera::create_view() {
-  auto pos = m_orbit - m_gaze * m_dolly;
-  auto side = plaid::norm(plaid::cross(m_gaze, m_top));
+plaid::mat4x4 camera::view() {
+  auto s = side();
   auto rotate = plaid::mat4x4{{
-      {side.x, side.y, side.z, 0},
+      {s.x, s.y, s.z, 0},
       {-m_top.x, -m_top.y, -m_top.z, 0},
       {m_gaze.x, m_gaze.y, m_gaze.z, 0},
       {0, 0, 0, 1},
   }};
-  auto translate = plaid::mat4x4{{
-      {1, 0, 0, -pos.x},
-      {0, 1, 0, -pos.y},
-      {0, 0, 1, -pos.z},
-      {0, 0, 0, 1},
-  }};
-  return rotate * translate;
+  auto pos = m_orbit - m_gaze * m_dolly;
+  return rotate * plaid::translate(-pos);
 }
 
-plaid::mat4x4 camera::create_projection() {
+plaid::mat4x4 camera::projection() {
   auto h = m_near * std::tan(m_fovy / 2) * 2;
   auto w = h * m_ratio;
   auto frustum = plaid::mat4x4{{
@@ -63,29 +60,45 @@ plaid::mat4x4 camera::create_projection() {
 }
 
 void camera::move_hor(float rad) {
-  auto cs = std::cos(rad);
-  auto s = std::sin(rad);
-  auto rotate = plaid::mat4x4{{
-                    {1, 0, 0, -m_orbit.x},
-                    {0, 1, 0, -m_orbit.y},
-                    {0, 0, 1, -m_orbit.z},
-                    {0, 0, 0, 1},
-                }} *
-                plaid::mat4x4{{
-                    {cs, 0, s, 0},
-                    {0, 1, 0, 0},
-                    {-s, 0, cs, 0},
-                    {0, 0, 0, 1},
-                }} *
-                plaid::mat4x4{{
-                    {1, 0, 0, m_orbit.x},
-                    {0, 1, 0, m_orbit.y},
-                    {0, 0, 1, m_orbit.z},
-                    {0, 0, 0, 1},
-                }};
+  auto sinr = std::sin(rad), cosr = std::cos(rad);
+  plaid::mat4x4 rotate{{
+      {cosr, 0, sinr, 0},
+      {0, 1, 0, 0},
+      {-sinr, 0, cosr, 0},
+      {0, 0, 0, 1},
+  }};
 
-  auto next_gaze = rotate * plaid::vec4{m_gaze.x, m_gaze.y, m_gaze.z};
-  auto next_top = rotate * plaid::vec4{m_top.x, m_top.y, m_top.z};
+  auto trans = plaid::translate(m_orbit) * rotate * plaid::translate(-m_orbit);
+
+  auto next_gaze = trans * plaid::vec4{m_gaze.x, m_gaze.y, m_gaze.z};
   m_gaze = {next_gaze.x, next_gaze.y, next_gaze.z};
-  m_top = {next_top.x, next_top.y, next_top.z};
+  m_top = calculate_top(m_gaze);
+}
+
+void camera::move_vet(float rad) {
+  auto sinr = std::sin(rad), cosr = std::cos(rad);
+  auto s = side();
+  plaid::mat4x4 place{{
+      {s.x, s.y, s.z, 0},
+      {-m_top.x, -m_top.y, -m_top.z, 0},
+      {m_gaze.x, m_gaze.y, m_gaze.z, 0},
+      {0, 0, 0, 1},
+  }};
+  plaid::mat4x4 rotate{{
+      {1, 0, 0, 0},
+      {0, cosr, -sinr, 0},
+      {0, sinr, cosr, 0},
+      {0, 0, 0, 1},
+  }};
+  plaid::mat4x4 reset = plaid::transpose(place);
+
+  auto vad = place * reset;
+
+  auto trans = plaid::translate(m_orbit) *
+               // reset * rotate * place *
+               plaid::translate(-m_orbit);
+
+  auto next_gaze = trans * plaid::vec4{m_gaze.x, m_gaze.y, m_gaze.z};
+  m_gaze = {next_gaze.x, next_gaze.y, next_gaze.z};
+  m_top = calculate_top(m_gaze);
 }

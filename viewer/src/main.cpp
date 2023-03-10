@@ -12,13 +12,20 @@
 #include "triangle.hpp"
 #include "window.h"
 
+constexpr plaid::mat4x4 model{{
+    {0.05, 0, 0, 0},
+    {0, 0.05, 0, 0},
+    {0, 0, 0.05, 0},
+    {0, 0, 0, 1},
+}};
+
 plaid::render_pass viewer_render_pass;
 plaid::graphics_pipeline viewer_pipeline;
 plaid::frame_buffer viewer_frame_buffer;
 std::unique_ptr<float[]> depth_buffer;
 std::uint32_t size;
 
-camera viewer_cam({2, -1, -1}, {0.5, 0.5, 0.5}, 2, 60, std::numbers::pi / 18, 1);
+camera viewer_cam({2, -1, -1}, {}, 0.5, 60, std::numbers::pi / 18, 1);
 plaid::mat4x4 mvp;
 
 /// 初始化渲染通道
@@ -99,6 +106,10 @@ void initialize() {
   initialize_pipeline();
 }
 
+void update_mvp() {
+  mvp = viewer_cam.projection() * viewer_cam.view() * model;
+}
+
 void recreate_frame_buffer(std::uint32_t *color, std::uint32_t width, std::uint32_t height) {
   depth_buffer = std::make_unique<float[]>(size = width * height);
   std::byte *attachements[] = {
@@ -109,13 +120,13 @@ void recreate_frame_buffer(std::uint32_t *color, std::uint32_t width, std::uint3
       2, attachements, width, height
   );
   viewer_cam.ratio() = float(width) / height;
-  mvp = viewer_cam.create_projection() * viewer_cam.create_view();
+  update_mvp();
 }
 
 void render(const obj_model &model) {
   plaid::clear_value clear_values[]{
       {.color{
-          .u{0, 0, 0, 0},
+          .u{127, 127, 255, 0},
       }},
       {.depth_stencil{
           .depth = 1.f,
@@ -160,15 +171,15 @@ public:
 
   void mouse_wheel(window &, std::int16_t distance) override {
     viewer_cam.dolly() += distance * 0.01f;
-    mvp = viewer_cam.create_projection() * viewer_cam.create_view();
+    update_mvp();
   }
 
   void mouse_move(window &, const mouse_movement &mov) override {
     if (mov.flag & mouse_movement::P_LBUTTON) {
       if (m_mouse_pos.has_value()) {
         viewer_cam.move_hor((mov.x - m_mouse_pos->x) * .01f);
-        //viewer_cam.move_vet(mov.y - m_mouse_pos->y);
-        mvp = viewer_cam.create_projection() * viewer_cam.create_view();
+        viewer_cam.move_vet((mov.y - m_mouse_pos->y) * .01f);
+        update_mvp();
       }
       m_mouse_pos.emplace(mov.x, mov.y);
     } else {
@@ -188,6 +199,19 @@ private:
   std::optional<mouse_position> m_mouse_pos;
 
 };
+
+void handle_window_input(window &w) {
+  using state = window::key_state;
+  auto &keys = w.keys();
+  auto fwd = .05f * (keys(state::up) - keys(state::down));
+  auto sft = .05f * (keys(state::right) - keys(state::left));
+  auto tow = viewer_cam.gaze() * fwd;
+  tow.y = 0;
+  viewer_cam.obrit() = viewer_cam.obrit() + tow + sft * viewer_cam.side();
+  if (sft || fwd) {
+    update_mvp();
+  }
+}
 
 int main(int argc, const char *argv[]) {
   std::ios::sync_with_stdio(false);
@@ -230,6 +254,7 @@ int main(int argc, const char *argv[]) {
     // 渲染帧
     render(model);
     window.invalidate();
+    handle_window_input(window);
     print_fps();
     window.poll_events();
   }

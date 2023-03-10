@@ -12,9 +12,18 @@ public:
     float near, float far, float fovy, float ratio
   );
 
-  [[nodiscard]] plaid::mat4x4 create_view();
+  [[nodiscard]] plaid::mat4x4 view();
 
-  [[nodiscard]] plaid::mat4x4 create_projection();
+  [[nodiscard]] plaid::mat4x4 projection();
+
+  [[nodiscard]] inline plaid::vec3 &obrit() noexcept { return m_orbit; }
+  [[nodiscard]] inline const plaid::vec3 &obrit() const noexcept { return m_orbit; }
+
+  [[nodiscard]] inline const plaid::vec3 &gaze() const noexcept { return m_gaze; }
+
+  [[nodiscard]] inline const plaid::vec3 side() const noexcept {
+    return plaid::norm(plaid::cross(m_gaze, m_top));
+  }
 
   [[nodiscard]] inline float &near() noexcept { return m_near; }
   [[nodiscard]] inline const float &near() const noexcept { return m_near; }
@@ -32,6 +41,8 @@ public:
   [[nodiscard]] inline const float &ratio() const noexcept { return m_ratio; }
 
   void move_hor(float rad);
+
+  void move_vet(float rad);
 
 private:
 
