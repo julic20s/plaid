@@ -4,6 +4,7 @@
 
 // 数学库
 #include <plaid/mat.h>
+#include <plaid/transition.h>
 #include <plaid/vec.h>
 
 // 基础功能
