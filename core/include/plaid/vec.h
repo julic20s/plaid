@@ -187,6 +187,11 @@ template <vec Ty>
   return v / abs(v);
 }
 
+template <vec Ty>
+[[nodiscard]] constexpr auto operator-(Ty v) {
+  return v * -1;
+}
+
 } // namespace plaid
 
 #endif // PLAID_VEC_H_
