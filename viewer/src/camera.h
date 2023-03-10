@@ -33,8 +33,6 @@ public:
 
   void move_hor(float rad);
 
-  void mov_vet(float rad);
-
 private:
 
   /// 环绕点坐标

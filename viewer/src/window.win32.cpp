@@ -65,9 +65,15 @@ private:
       case WM_MOUSEWHEEL:
         events->mouse_wheel(wrapper, HIWORD(wparam));
         break;
-      case WM_MOUSEMOVE:
-        events->mouse_move(wrapper, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+      case WM_MOUSEMOVE: {
+        events::mouse_movement mov{
+            .x = static_cast<std::int32_t>(GET_X_LPARAM(lparam)),
+            .y = static_cast<std::int32_t>(GET_Y_LPARAM(lparam)),
+            .flag = static_cast<std::uint32_t>(wparam),
+        };
+        events->mouse_move(wrapper, mov);
         break;
+      }
       [[unlikely]] case WM_CLOSE:
         state->should_close = true;
         break;

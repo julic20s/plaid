@@ -3,6 +3,7 @@
 #include <iostream>
 #include <memory>
 #include <numbers>
+#include <optional>
 
 #include <plaid.h>
 
@@ -149,7 +150,9 @@ void print_fps() {
   }
 }
 
-struct plaid_viewer_window_events : window::events {
+class plaid_viewer_window_events : public window::events {
+
+public:
 
   void surface_recreate(window &w, std::uint32_t width, std::uint32_t height) override {
     recreate_frame_buffer(w.surface(), width, height);
@@ -160,9 +163,30 @@ struct plaid_viewer_window_events : window::events {
     mvp = viewer_cam.create_projection() * viewer_cam.create_view();
   }
 
-  void mouse_move(window &, short x, short y) override {
-    // TODO
+  void mouse_move(window &, const mouse_movement &mov) override {
+    if (mov.flag & mouse_movement::P_LBUTTON) {
+      if (m_mouse_pos.has_value()) {
+        viewer_cam.move_hor((mov.x - m_mouse_pos->x) * .01f);
+        //viewer_cam.move_vet(mov.y - m_mouse_pos->y);
+        mvp = viewer_cam.create_projection() * viewer_cam.create_view();
+      }
+      m_mouse_pos.emplace(mov.x, mov.y);
+    } else {
+      m_mouse_pos.reset();
+    }
   }
+
+private:
+
+  struct mouse_position {
+    std::int32_t x, y;
+
+    mouse_position() = default;
+    mouse_position(std::int32_t x, std::int32_t y) noexcept : x(x), y(y) {}
+  };
+
+  std::optional<mouse_position> m_mouse_pos;
+
 };
 
 int main(int argc, const char *argv[]) {
