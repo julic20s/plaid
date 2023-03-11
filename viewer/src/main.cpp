@@ -170,7 +170,7 @@ public:
   }
 
   void mouse_wheel(window &, std::int16_t distance) override {
-    viewer_cam.dolly() += distance * 0.01f;
+    viewer_cam.dolly() -= distance * 0.01f;
     update_mvp();
   }
 
