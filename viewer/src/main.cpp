@@ -25,7 +25,7 @@ plaid::frame_buffer viewer_frame_buffer;
 std::unique_ptr<float[]> depth_buffer;
 std::uint32_t size;
 
-camera viewer_cam({2, -1, -1}, {}, 0.5, 60, std::numbers::pi / 18, 1);
+camera viewer_cam({2, 0, -1}, {}, 0.5, 60, std::numbers::pi / 18, 1);
 plaid::mat4x4 mvp;
 
 /// 初始化渲染通道
@@ -178,7 +178,7 @@ public:
     if (mov.flag & mouse_movement::P_LBUTTON) {
       if (m_mouse_pos.has_value()) {
         viewer_cam.move_hor((mov.x - m_mouse_pos->x) * .01f);
-        viewer_cam.move_vet((mov.y - m_mouse_pos->y) * .01f);
+        viewer_cam.move_vet((mov.y - m_mouse_pos->y) * -.01f);
         update_mvp();
       }
       m_mouse_pos.emplace(mov.x, mov.y);

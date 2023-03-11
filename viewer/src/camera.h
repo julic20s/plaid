@@ -22,7 +22,8 @@ public:
   [[nodiscard]] inline const plaid::vec3 &gaze() const noexcept { return m_gaze; }
 
   [[nodiscard]] inline const plaid::vec3 side() const noexcept {
-    return plaid::norm(plaid::cross(m_gaze, m_top));
+    // cross(Y, Z) == kX
+    return plaid::norm(plaid::cross({0, 1, 0}, m_gaze));
   }
 
   [[nodiscard]] inline float &near() noexcept { return m_near; }
@@ -48,10 +49,8 @@ private:
 
   /// 环绕点坐标
   plaid::vec3 m_orbit;
-  /// 相机拍摄方向矢量，归一化
+  /// 相机坐标
   plaid::vec3 m_gaze;
-  /// 相机顶部方向矢量，归一化
-  plaid::vec3 m_top;
   /// 近平面距离
   float m_near;
   /// 远平面距离
