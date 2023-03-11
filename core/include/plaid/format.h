@@ -18,18 +18,18 @@ enum class format : std::uint16_t {
 };
 
 /// 获取给定格式所占的字节数量
-[[nodiscard]] inline std::uint32_t format_size(format f) {
+[[nodiscard]] constexpr std::uint32_t format_size(format f) {
   auto num = static_cast<std::uint16_t>(f);
   return (num & 0xf) * ((num & 0xf0) >> 4);
 }
 
 /// 判断是否浮点型
-[[nodiscard]] inline bool is_float_format(format f) {
+[[nodiscard]] constexpr bool is_float_format(format f) {
   return (static_cast<std::uint16_t>(f) & 0xf00) == 0;
 }
 
 /// 判断是否无符号整型
-[[nodiscard]] inline bool is_unsigned_integer_format(format f) {
+[[nodiscard]] constexpr bool is_unsigned_integer_format(format f) {
   return (static_cast<std::uint16_t>(f) & 0xf00) == 0x100;
 }
 
