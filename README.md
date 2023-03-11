@@ -13,6 +13,7 @@ plaid 是一个 C++ 软光栅渲染器。它由两个部分组成:
 ### TODO
 * 代码很乱可读性很差，慢慢优化
 * 加载 glTF
+* 一个不成熟的想法：用 coroutine 来实现 ddx, ddy 和 mipmap
 
 ### 环境需求
 * CMake

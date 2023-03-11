@@ -13,6 +13,7 @@ plaid is a software renderer in C++。It is consist of two parts:
 ### TODO
 * The code is so mess，I will try to improve the readability.
 * Load from glTF
+* A half-baked idea: using coroutine to implement ddx, ddy, and mipmap
 
 ### Environments
 * CMake
