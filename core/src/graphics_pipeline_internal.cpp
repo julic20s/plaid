@@ -245,7 +245,7 @@ void graphics_pipeline_impl::clear_color_attachment(const render_pass::state &st
   clear_by_format(src_format, ref.format, dst, dst_ed, src, dst_stride);
 }
 
-void graphics_pipeline_impl::clear_depth_attachment(const render_pass::state &state, attachment_reference ref) {
+void graphics_pipeline_impl::clear_stencil_attachment(const render_pass::state &state, attachment_reference ref) {
   // 根据附件类型选定清除值
   auto src_format = format::undefined;
   const std::byte *src = nullptr;
@@ -284,11 +284,11 @@ void graphics_pipeline_impl::draw(
   }
 
   {
-    // 对深度附件应用清除值
+    // 对深度/模板附件应用清除值
     auto ref = *state.m_current_subpass->depth_stencil_attachment;
     auto &desc = state.m_attachment_descriptions[ref.id];
     if (desc.stencil_load_op == attachment_load_op::clear) {
-      clear_depth_attachment(state, ref);
+      clear_stencil_attachment(state, ref);
     }
   }
 
