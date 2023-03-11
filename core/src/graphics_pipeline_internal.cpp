@@ -445,8 +445,6 @@ void graphics_pipeline_impl::draw_triangle_strip(
     vec4 *target[3];
     target[0] = clipped;
 
-    // TODO：这里还需要确定顶点顺序，使得面剔除能够正确执行
-    // （虽然现在也还没有写面剔除
     int ping_pong = 0;
     while (1) {
 
