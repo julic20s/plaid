@@ -500,10 +500,12 @@ void graphics_pipeline_impl::invoke_vertex_shader(
   // 只有一个内置变量，即裁剪空间坐标
   auto mutable_builtin = reinterpret_cast<memory>(&clip_coord);
   m_vertex_shader(descriptor_set, m_vertex_shader_input, output, &mutable_builtin);
-  
 }
 
-void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state, const vec4 *const (&clip_coord)[3]) {
+void graphics_pipeline_impl::rasterize_triangle(
+  const render_pass::state &state,
+  const vec4 *const (&clip_coord)[3]
+) {
   auto frame = state.m_frame_buffer;
   auto width = frame->width();
   auto height = frame->height();
@@ -526,6 +528,18 @@ void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state,
     }
   }
 
+  auto ab = view[1] - view[0];
+  auto ac = view[2] - view[0];
+
+  {
+    /// 面剔除
+    vec3 ab3 = {ab.x, ab.y, z[1] - z[0]};
+    vec3 ac3 = {ac.x, ac.y, z[2] - z[0]};
+    if (dot(cross(ab3, ac3), {0, 0, 1}) >= 0) {
+      return;
+    }
+  }
+
   auto l = width - 1, t = height - 1, r = 0u, b = 0u;
   for (auto &v : view) {
     l = (std::min)(l, static_cast<decltype(l)>(v.x));
@@ -537,8 +551,6 @@ void graphics_pipeline_impl::rasterize_triangle(const render_pass::state &state,
   r = (std::min)(r, width - 1);
   b = (std::min)(b, height - 1);
 
-  auto ab = view[1] - view[0];
-  auto ac = view[2] - view[0];
   auto m = cross(ab, ac);
   if (!m) {
     return;
