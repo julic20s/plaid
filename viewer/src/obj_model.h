@@ -17,6 +17,8 @@ public:
 
   [[nodiscard]] inline const plaid::vec3 *positions() const noexcept { return m_pos.data(); }
 
+  [[nodiscard]] inline const plaid::vec3 *normals() const noexcept { return m_norm.data(); }
+
   [[nodiscard]] inline const vertex *vertices() const noexcept { return m_vertices.data(); }
 
   [[nodiscard]] inline std::uint32_t size() const noexcept { return m_vertices.size(); }

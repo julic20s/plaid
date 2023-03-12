@@ -7,9 +7,9 @@
 
 #include <plaid.h>
 
+#include "blinn_phong.hpp"
 #include "camera.h"
 #include "obj_model.h"
-#include "triangle.hpp"
 #include "window.h"
 
 constexpr plaid::mat4x4 model{{
@@ -27,6 +27,8 @@ std::uint32_t size;
 
 camera viewer_cam({2, 0, -1}, {}, 0.5, 60, std::numbers::pi / 18, 1);
 plaid::mat4x4 mvp;
+
+
 
 /// 初始化渲染通道
 void initialize_render_pass() {
@@ -78,8 +80,8 @@ void initialize_pipeline() {
       },
   };
 
-  const auto vert = plaid::dsl_shader_module::load<&triangle::vert::main>();
-  const auto frag = plaid::dsl_shader_module::load<&triangle::frag::main>();
+  const auto vert = plaid::dsl_shader_module::load<&blinn_phong::vert::main>();
+  const auto frag = plaid::dsl_shader_module::load<&blinn_phong::frag::main>();
 
   plaid::graphics_pipeline::create_info create_info{
       .vertex_input_state{
@@ -141,7 +143,10 @@ void render(const obj_model &model) {
 
   plaid::render_pass::state state(begin_info);
   state.bind_descriptor_set(0, reinterpret_cast<const std::byte *>(model.positions()));
-  state.bind_descriptor_set(1, reinterpret_cast<const std::byte *>(&mvp));
+  state.bind_descriptor_set(1, reinterpret_cast<const std::byte *>(model.normals()));
+  state.bind_descriptor_set(2, reinterpret_cast<const std::byte *>(&mvp));
+  auto view = plaid::norm(viewer_cam.obrit() - viewer_cam.gaze());
+  state.bind_descriptor_set(3, reinterpret_cast<const std::byte *>(&view));
   state.bind_vertex_buffer(0, reinterpret_cast<const std::byte *>(model.vertices()));
   state.draw(viewer_pipeline, model.size(), 1, 0, 0);
   state.next_subpass();
@@ -197,7 +202,6 @@ private:
   };
 
   std::optional<mouse_position> m_mouse_pos;
-
 };
 
 void handle_window_input(window &w) {
