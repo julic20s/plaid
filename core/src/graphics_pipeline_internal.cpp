@@ -28,6 +28,7 @@ graphics_pipeline &graphics_pipeline::operator=(graphics_pipeline &&mov) noexcep
 
 graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_info &info) {
   vertex_assembly = info.input_assembly_state.topology;
+  rasterization_state = info.rasterization_state;
 
   auto &vertex_shader_module = info.shader_stage.vertex_shader;
   auto &fragment_shader_module = info.shader_stage.fragment_shader;
@@ -533,7 +534,11 @@ void graphics_pipeline_impl::rasterize_triangle(
     /// 面剔除
     vec3 ab3 = {ab.x, ab.y, z[1] - z[0]};
     vec3 ac3 = {ac.x, ac.y, z[2] - z[0]};
-    if (dot(cross(ab3, ac3), {0, 0, 1}) >= 0) {
+    auto dir = dot(cross(ab3, ac3), {0, 0, 1});
+    if ((rasterization_state.cull_mode & cull_modes::back) && dir >= 0) {
+      return;
+    }
+    if (rasterization_state.cull_mode & cull_modes::front && dir <= 0) {
       return;
     }
   }

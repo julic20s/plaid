@@ -14,7 +14,7 @@
 
 constexpr plaid::mat4x4 model{{
     {0.05, 0, 0, 0},
-    {0, 0.05, 0, 0},
+    {0, -0.05, 0, 0},
     {0, 0, 0.05, 0},
     {0, 0, 0, 1},
 }};
@@ -27,8 +27,6 @@ std::uint32_t size;
 
 camera viewer_cam({2, 0, -1}, {}, 0.5, 60, std::numbers::pi / 18, 1);
 plaid::mat4x4 mvp;
-
-
 
 /// 初始化渲染通道
 void initialize_render_pass() {
@@ -96,6 +94,9 @@ void initialize_pipeline() {
       .shader_stage = {
           .vertex_shader = vert,
           .fragment_shader = frag,
+      },
+      .rasterization_state{
+        .cull_mode = plaid::cull_modes::front,
       },
       .render_pass = viewer_render_pass,
   };

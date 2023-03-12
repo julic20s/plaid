@@ -106,6 +106,8 @@ public:
 
   /// 顶点装配模式
   primitive_topology vertex_assembly;
+  
+  struct graphics_pipeline::create_info::rasterization_state rasterization_state;
 
 private:
 
