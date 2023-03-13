@@ -96,7 +96,7 @@ void initialize_pipeline() {
           .fragment_shader = frag,
       },
       .rasterization_state{
-        .cull_mode = plaid::cull_modes::front,
+          .cull_mode = plaid::cull_modes::front,
       },
       .render_pass = viewer_render_pass,
   };
