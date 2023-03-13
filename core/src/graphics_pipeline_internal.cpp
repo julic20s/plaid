@@ -26,6 +26,22 @@ graphics_pipeline &graphics_pipeline::operator=(graphics_pipeline &&mov) noexcep
   return *new (this) graphics_pipeline(static_cast<graphics_pipeline &&>(mov));
 }
 
+static std::byte *aligned_malloc(std::uint32_t size, std::uint32_t al) {
+  if (!al || (al & -al) != al) {
+    return nullptr;
+  }
+  static constexpr auto address = sizeof(std::uintptr_t *);
+  auto real_size = address + size + al - 1;
+  auto start = reinterpret_cast<std::uintptr_t>(std::malloc(real_size));
+  std::uintptr_t *dat = reinterpret_cast<std::uintptr_t *>((start + address + al - 1) / al * al);
+  *(dat - 1) = start;
+  return reinterpret_cast<std::byte *>(dat);
+}
+
+static void aligned_free(void *ptr) {
+  std::free(*(reinterpret_cast<void **>(ptr) - 1));
+}
+
 graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_info &info) {
   vertex_assembly = info.input_assembly_state.topology;
   rasterization_state = info.rasterization_state;
@@ -153,13 +169,11 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
                                   fragment_output_align * fragment_output_align;
 
     // 整个输出结构的字节大小
-    auto allocating_size = fragment_output_offset + fragment_output_size;
+    auto allocated_memory_size = fragment_output_offset + fragment_output_size;
 
     // 申请内存
-    m_allocated_memory_align = std::align_val_t((std::max)(chunk_align, fragment_output_align));
-    m_allocated_memory = reinterpret_cast<std::byte *>(
-        ::operator new(allocating_size, m_allocated_memory_align)
-    );
+    auto allocated_memory_align = (std::max)(chunk_align, fragment_output_align);
+    m_allocated_memory = aligned_malloc(allocated_memory_size, allocated_memory_align);
 
     {
       // 整个输出结构的偏移量
@@ -207,7 +221,7 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
 }
 
 graphics_pipeline_impl::~graphics_pipeline_impl() {
-  ::operator delete(m_allocated_memory, m_allocated_memory_align);
+  aligned_free(m_allocated_memory);
 }
 
 static void clear_by_format(
@@ -502,8 +516,8 @@ void graphics_pipeline_impl::invoke_vertex_shader(
 }
 
 void graphics_pipeline_impl::rasterize_triangle(
-  const render_pass::state &state,
-  const vec4 *const (&clip_coord)[3]
+    const render_pass::state &state,
+    const vec4 *const (&clip_coord)[3]
 ) {
   auto frame = state.m_frame_buffer;
   auto width = frame->width();
