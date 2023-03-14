@@ -126,8 +126,6 @@ private:
 
   /// 动态申请出的内存
   std::byte *m_allocated_memory;
-  /// 动态申请出的内存的对齐字节数
-  std::align_val_t m_allocated_memory_align;
   /// 申请出的内存分为 4 + 1 块，此值表示前 4 块，每一块的字节数
   std::uint32_t m_allocated_memory_chunk_size;
 
