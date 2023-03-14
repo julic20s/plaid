@@ -35,12 +35,10 @@ constexpr char_token key_separator{':'};
 constexpr char_token comma{','};
 constexpr char_token quote{'"'};
 
-template <class Char, class Traits>
-[[nodiscard]] bool has_key(std::basic_istream<Char, Traits> &stream) {
+template <char_token Token, class Char, class Traits>
+[[nodiscard]] bool has_char_token(std::basic_istream<Char, Traits> &stream) {
   using istream = std::basic_istream<Char, Traits>;
   using ctype = std::ctype<Char>;
-
-  typename istream::iostate state = istream::goodbit;
 
   if (typename istream::sentry(stream)) {
     const ctype &fac = std::use_facet<ctype>(stream.getloc());
@@ -53,7 +51,7 @@ template <class Char, class Traits>
         meta = stream.rdbuf()->snextc();
         continue;
       }
-      return Traits::eq_int_type(json::quote.ch, Traits::to_char_type(meta));
+      return Traits::eq_int_type(Token.ch, Traits::to_char_type(meta));
     }
   }
   return false;
