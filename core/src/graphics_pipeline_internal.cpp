@@ -417,7 +417,7 @@ void graphics_pipeline_impl::draw_triangle_list(
       for (auto i = 1; i <= vertex_cnt - 2; ++i) {
         target[1] = clipped + i;
         target[2] = clipped + i + 1;
-        rasterize_triangle(state, target);
+        rasterize_triangle(state, const_cast<const vec4 *const(&)[3]>(target));
       }
 
       auto start = indices[2];
@@ -467,7 +467,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
       for (auto i = 1; i <= vertex_cnt - 2; ++i) {
         target[1] = clipped + i;
         target[2] = clipped + i + 1;
-        rasterize_triangle(state, target);
+        rasterize_triangle(state, const_cast<const vec4 *(&)[3]>(target));
       }
 
       indices[ping_pong] += 3;
@@ -629,7 +629,7 @@ void graphics_pipeline_impl::invoke_fragment_shader(
   }
   auto mutable_builtin = reinterpret_cast<memory>(&fragcoord);
   m_fragment_shader(
-      state.m_descriptor_set, m_fragment_shader_input,
+      state.m_descriptor_set, const_cast<const_memory(&)[256]>(m_fragment_shader_input),
       m_fragment_shader_output, &mutable_builtin
   );
 
