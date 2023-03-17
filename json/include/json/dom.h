@@ -1,4 +1,6 @@
 #pragma once
+#ifndef PLAID_JSON_DOM_H_
+#define PLAID_JSON_DOM_H_
 
 #include <cstddef>
 
@@ -121,3 +123,5 @@ private:
 };
 
 } // namespace json
+
+#endif
