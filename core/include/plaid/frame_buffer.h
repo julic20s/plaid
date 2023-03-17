@@ -30,13 +30,13 @@ public:
 
   frame_buffer(const frame_buffer &);
 
-  frame_buffer(frame_buffer &&);
+  frame_buffer(frame_buffer &&) noexcept;
 
   ~frame_buffer();
 
   frame_buffer &operator=(const frame_buffer &);
 
-  frame_buffer &operator=(frame_buffer &&);
+  frame_buffer &operator=(frame_buffer &&) noexcept;
 
   /// 获取帧缓冲区的宽度
   /// @return 当前缓冲区的宽度

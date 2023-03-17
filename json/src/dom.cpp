@@ -11,7 +11,7 @@ class token_stream {
 
 public:
   token_stream(std::istream &stream) noexcept
-      : m_skip_spaces(true), m_stream(stream), m_cur(0) {}
+      : m_skip_spaces(true), m_cur(0), m_stream(stream) {}
 
   void skip_spaces(bool value) {
     m_skip_spaces = value;

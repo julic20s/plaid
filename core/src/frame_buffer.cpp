@@ -25,7 +25,7 @@ frame_buffer::frame_buffer(const frame_buffer &copy) {
   *this = copy;
 }
 
-frame_buffer::frame_buffer(frame_buffer &&mov) {
+frame_buffer::frame_buffer(frame_buffer &&mov) noexcept {
   m_attachments_count = mov.m_attachments_count;
   m_attachments = mov.m_attachments;
   m_width = mov.m_width;
@@ -39,7 +39,7 @@ frame_buffer &frame_buffer::operator=(const frame_buffer &copy) {
   return *new (this) frame_buffer(copy.m_attachments_count, copy.m_attachments, copy.m_width, copy.m_height);
 }
 
-frame_buffer &frame_buffer::operator=(frame_buffer &&mov) {
+frame_buffer &frame_buffer::operator=(frame_buffer &&mov) noexcept {
   return *new (this) frame_buffer(static_cast<frame_buffer &&>(mov));
 }
 

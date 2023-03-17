@@ -74,7 +74,7 @@ render_pass::~render_pass() {
   }
 }
 
-render_pass &render_pass::operator=(render_pass &&mov) {
+render_pass &render_pass::operator=(render_pass &&mov) noexcept {
   return *new (this) render_pass(static_cast<render_pass &&>(mov));
 }
 

@@ -142,7 +142,7 @@ struct attribute_format_matcher;
 class dsl_shader_module : public shader_module {
 private:
   template <auto>
-  struct constructor;
+  class constructor;
 
 public:
   /// 生成将指定的着色器类成员函数作为着色器入口函数的着色器模块

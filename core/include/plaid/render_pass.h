@@ -89,7 +89,7 @@ public:
 
   ~render_pass();
 
-  render_pass &operator=(render_pass &&mov);
+  render_pass &operator=(render_pass &&mov) noexcept;
 
   /// 获得指定附件的描述
   /// @param index 附件编号

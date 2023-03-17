@@ -12,7 +12,7 @@ namespace json {
 
 class dom {
 private:
-  class member;
+  struct member;
   class parser;
 
 public:
