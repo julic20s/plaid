@@ -6,6 +6,7 @@
 #include <optional>
 
 #include <plaid.h>
+#include <json/dom.h>
 
 #include "blinn_phong.hpp"
 #include "camera.h"

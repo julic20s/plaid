@@ -6,6 +6,7 @@ target_sources(plaid_viewer PRIVATE ${PLAID_VIEWER_SRC})
 
 # 依赖
 target_link_libraries(plaid_viewer plaid)
+target_link_libraries(plaid_viewer plaid_json)
 
 # 为 WIN32 平台设置专属宏
 message(STATUS "PLAID_VIEWER_WIN32=${WIN32}")

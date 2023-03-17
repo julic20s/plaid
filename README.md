@@ -4,8 +4,9 @@
 
 🚧🚧🚧 未完成 🚧🚧🚧
 
-plaid 是一个 C++ 软光栅渲染器。它由两个部分组成:
+plaid 是一个 C++ 软光栅渲染器。它由三个部分组成:
 * `core` 渲染管线框架实现。
+* `json` 解析 json 到 dom
 * `viewer` 加载并渲染模型。
 
 ![Hello triangle!](screenshot/screenshot_triangle.png)

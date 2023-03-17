@@ -4,8 +4,9 @@
 
 🚧🚧🚧 UNFINISHED 🚧🚧🚧
 
-plaid is a software renderer in C++。It is consist of two parts:
+plaid is a software renderer in C++。It is consist of three parts:
 * `core` The rendering pipeline implementation.
+* `gltf` Parse json to dom
 * `viewer` Loading and displaying the model.
 
 ![Hello triangle!](screenshot/screenshot_triangle.png)
