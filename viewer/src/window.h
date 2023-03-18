@@ -50,19 +50,29 @@ public:
   class key_state {
   public:
 
-    static constexpr auto up = 0x1;
-    static constexpr auto down = 0x2;
-    static constexpr auto left = 0x4;
-    static constexpr auto right = 0x8;
+    enum : std::uint8_t {
+#ifdef PLAID_VIEWER_WIN32
+      W = 0x57,
+      A = 0x41,
+      S = 0x53,
+      D = 0x44,
+
+      left = 0x25,
+      up = 0x26,
+      right = 0x27,
+      down = 0x28,
+
+      shift = 0x10,
+      space = 0x20,
+#endif
+    };
 
     [[nodiscard]] inline bool operator()(std::uint8_t key) const {
-      return m_flag & key;
+      return m_flag[key];
     }
 
   private:
-
-    std::uint8_t m_flag;
-
+    bool m_flag[0x100];
     friend class delegate;
   };
 

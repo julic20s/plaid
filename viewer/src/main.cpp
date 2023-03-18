@@ -177,7 +177,7 @@ public:
   }
 
   void mouse_wheel(window &, std::int16_t distance) override {
-    viewer_cam.dolly() -= distance * 0.01f;
+    viewer_cam.dolly() -= distance * 0.05f;
     update_mvp();
   }
 
@@ -209,12 +209,16 @@ private:
 void handle_window_input(window &w) {
   using state = window::key_state;
   auto &keys = w.keys();
-  auto fwd = .05f * (keys(state::up) - keys(state::down));
-  auto sft = .05f * (keys(state::right) - keys(state::left));
-  auto tow = viewer_cam.gaze() * fwd;
+  auto fwd = .02f * (keys(state::W) - keys(state::S));
+  auto sft = .02f * (keys(state::D) - keys(state::A));
+  auto flt = .02f * (keys(state::shift) - keys(state::space));
+  if (flt) {
+    std::cout << flt << '\n';
+  }
+  auto tow = plaid::norm(viewer_cam.gaze()) * fwd;
   tow.y = 0;
-  viewer_cam.obrit() = viewer_cam.obrit() + tow + sft * viewer_cam.side();
-  if (sft || fwd) {
+  viewer_cam.obrit() = viewer_cam.obrit() + tow + sft * viewer_cam.side() + plaid::vec3{0, 1, 0} * flt;
+  if (sft || fwd || flt) {
     update_mvp();
   }
 }

@@ -74,17 +74,12 @@ private:
         events->mouse_move(wrapper, mov);
         break;
       }
+      case WM_SYSKEYDOWN:
       case WM_KEYDOWN:
-        state->keys.m_flag |= key_state::up * (wparam == VK_UP);
-        state->keys.m_flag |= key_state::down * (wparam == VK_DOWN);
-        state->keys.m_flag |= key_state::left * (wparam == VK_LEFT);
-        state->keys.m_flag |= key_state::right * (wparam == VK_RIGHT);
+        state->keys.m_flag[wparam] = true;
         break;
       case WM_KEYUP:
-        state->keys.m_flag &= ~key_state::up | -(wparam != VK_UP);
-        state->keys.m_flag &= ~key_state::down | -(wparam != VK_DOWN);
-        state->keys.m_flag &= ~key_state::left | -(wparam != VK_LEFT);
-        state->keys.m_flag &= ~key_state::right | -(wparam != VK_RIGHT);
+        state->keys.m_flag[wparam] = false;
         break;
       [[unlikely]] case WM_CLOSE:
         state->should_close = true;
