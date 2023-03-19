@@ -11,10 +11,8 @@ class gltf {
 public:
   gltf(const char *file);
 
-  
-
 private:
-  json::dom json;
+  plaid::json::dom m_json;
 };
 
 } // namespace plaid_viewer

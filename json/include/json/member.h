@@ -3,7 +3,7 @@
 #include "string_pool.h"
 #include "value.h"
 
-namespace json {
+namespace plaid::json {
 
 /// json 成员对象
 struct member {

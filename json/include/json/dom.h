@@ -7,7 +7,7 @@
 #include "member.h"
 #include "value.h"
 
-namespace json {
+namespace plaid::json {
 
 class dom : value {
 public:

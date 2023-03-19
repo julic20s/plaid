@@ -3,7 +3,7 @@
 #include <string_view>
 #include <vector>
 
-namespace json {
+namespace plaid::json {
 
 class string_pool {
 public:

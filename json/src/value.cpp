@@ -1,6 +1,6 @@
 #include <json/dom.h>
 
-using namespace json;
+using namespace plaid::json;
 
 const value value::nullval;
 

@@ -1,6 +1,6 @@
 #include <json/member.h>
 
-using namespace json;
+using namespace plaid::json;
 
 member::member() noexcept : value(value::nullval) {}
 

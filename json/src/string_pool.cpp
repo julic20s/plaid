@@ -1,6 +1,6 @@
 #include <json/string_pool.h>
 
-using namespace json;
+using namespace plaid::json;
 
 std::size_t string_pool::push(std::string_view str) {
   auto index = m_pool.size();

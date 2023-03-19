@@ -10,11 +10,11 @@
 
 #include "string_pool.h"
 
-namespace json {
+namespace plaid::json {
 class member;
 }
 
-namespace json {
+namespace plaid::json {
 
 /// json 值对象，通过 union 保存各种类型的数据
 /// 除空类型、布尔值和数字直接包含

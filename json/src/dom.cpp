@@ -5,7 +5,7 @@
 
 #include <json/dom.h>
 
-using namespace json;
+using namespace plaid::json;
 
 class token_stream {
 
