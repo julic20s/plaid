@@ -5,13 +5,13 @@
 #include <numbers>
 #include <optional>
 
-#include <plaid.h>
 #include <json/dom.h>
+#include <plaid.h>
 
 #include "blinn_phong.hpp"
-#include "camera.h"
-#include "obj_model.h"
-#include "window.h"
+#include "data/obj_model.h"
+#include "platform/window.h"
+#include "scene/camera.h"
 
 constexpr plaid::mat4x4 model{{
     {0.05, 0, 0, 0},
