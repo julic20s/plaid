@@ -161,8 +161,16 @@ public:
   /// 根据当前渲染通道状态，绘制一帧
   void draw(
       graphics_pipeline_impl *,
-      std::uint32_t vertex_count, std::uint32_t instance_count,
+      std::uint32_t vertices_count, std::uint32_t instances_count,
       std::uint32_t first_vertex, std::uint32_t first_instance
+  );
+
+  /// 根据当前渲染通道状态和索引缓冲区，绘制一帧
+  void draw_indexed(
+      graphics_pipeline_impl *,
+      std::uint32_t indices_count, std::uint32_t instances_count,
+      std::uint32_t first_index, std::int32_t vertex_offset,
+      std::uint32_t first_instance
   );
 
   /// 移动状态到下一个渲染子通道

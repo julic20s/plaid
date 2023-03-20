@@ -11,6 +11,7 @@
 namespace plaid {
 class render_pass;
 class shader_module;
+enum class primitive_topology : std::uint8_t;
 }
 
 namespace plaid {
@@ -42,6 +43,9 @@ public:
 
   /// 转换为原生指针
   [[nodiscard]] inline operator graphics_pipeline_impl *() noexcept { return m_pointer; }
+
+  /// 获取顶点装配状态
+  [[nodiscard]] const primitive_topology &vertex_assembly() noexcept;
 
 private:
 

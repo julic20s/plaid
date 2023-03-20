@@ -25,7 +25,7 @@ public:
   /// @param first_instance 第一个实例的编号
   void draw(
       const plaid::render_pass::state &,
-      std::uint32_t vertex_count, std::uint32_t instances_count,
+      std::uint32_t vertices_count, std::uint32_t instances_count,
       std::uint32_t first_vertex, std::uint32_t first_instance
   );
 
@@ -38,7 +38,7 @@ public:
   void draw_indexed(
       const plaid::render_pass::state &,
       std::uint32_t indices_count, std::uint32_t instances_count,
-      std::uint32_t first_vertex, std::int32_t vertex_offset,
+      std::uint32_t first_index, std::int32_t vertex_offset,
       std::uint32_t first_instance
   );
 
@@ -50,26 +50,41 @@ private:
   /// 采用模板清除值重置附件
   static void clear_stencil_attachment(const render_pass::state &, attachment_reference);
 
+  template <bool Indexed>
+  void draw_internal(
+      const render_pass::state &,
+      std::uint32_t first, std::uint32_t last,
+      std::uint32_t first_inst, std::uint32_t last_inst,
+      std::int32_t vertex_offset
+  );
+
+  template <bool Indexed>
+  std::uint32_t actual_vertex(std::uint32_t position, std::int32_t vert_offset);
+
   /// 绘制 (n / 3) 个三角形，不对顶点进行重用
-  /// @param first_vert 第一个顶点编号
-  /// @param last_vert 最后一个顶点之后的顶点编号 (不绘制)
+  /// @param first 第一个顶点/索引编号
+  /// @param last 最后一个顶点/索引之后的顶点/索引编号 (不绘制)
   /// @param first_inst 第一个实例的编号
   /// @param last_inst 最后一个实例之后的实例 (不绘制)
+  template <bool Indexed>
   void draw_triangle_list(
       const render_pass::state &,
-      std::uint32_t first_vert, std::uint32_t last_vert,
-      std::uint32_t first_inst, std::uint32_t last_inst
+      std::uint32_t first, std::uint32_t last,
+      std::uint32_t first_inst, std::uint32_t last_inst,
+      std::int32_t vert_offset
   );
 
   /// 绘制 (n - 2) 个三角形，第 2 ~ (n - 1) 个顶点存在共用
-  /// @param first_vert 第一个顶点编号
-  /// @param last_vert 最后一个顶点之后的顶点编号 (不绘制)
+  /// @param first 第一个顶点/索引编号
+  /// @param last 最后一个顶点/索引之后的顶点/索引编号 (不绘制)
   /// @param first_inst 第一个实例的编号
   /// @param last_inst 最后一个实例之后的实例 (不绘制)
+  template <bool Indexed>
   void draw_triangle_strip(
       const render_pass::state &,
-      std::uint32_t first_vert, std::uint32_t last_vert,
-      std::uint32_t first_inst, std::uint32_t last_inst
+      std::uint32_t first, std::uint32_t last,
+      std::uint32_t first_inst, std::uint32_t last_inst,
+      std::int32_t vert_offset
   );
 
   /// 更新逐顶点属性
@@ -106,7 +121,7 @@ public:
 
   /// 顶点装配模式
   primitive_topology vertex_assembly;
-  
+
   struct graphics_pipeline::create_info::rasterization_state rasterization_state;
 
 private:
@@ -182,6 +197,9 @@ private:
   };
   /// 保存片元着色器变量元属性
   fragment_output_detail m_fragment_output[1 << 8];
+
+  /// 索引缓冲区
+  std::uint32_t *m_index_buffer;
 };
 
 } // namespace plaid

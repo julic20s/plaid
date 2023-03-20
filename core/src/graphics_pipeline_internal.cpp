@@ -26,6 +26,10 @@ graphics_pipeline &graphics_pipeline::operator=(graphics_pipeline &&mov) noexcep
   return *new (this) graphics_pipeline(static_cast<graphics_pipeline &&>(mov));
 }
 
+const primitive_topology &graphics_pipeline::vertex_assembly() noexcept {
+  return m_pointer->vertex_assembly;
+}
+
 static std::byte *aligned_malloc(std::uint32_t size, std::uint32_t al) {
   if (!al || (al & -al) != al) {
     return nullptr;
@@ -280,6 +284,33 @@ void graphics_pipeline_impl::draw(
     std::uint32_t vertex_count, std::uint32_t instance_count,
     std::uint32_t first_vertex, std::uint32_t first_instance
 ) {
+  auto last_vert = first_vertex + vertex_count;
+  auto last_inst = first_instance + instance_count;
+  draw_internal<false>(
+      state, first_vertex, last_vert, first_instance, last_inst, 0
+  );
+}
+
+void graphics_pipeline_impl::draw_indexed(
+    const render_pass::state &state,
+    std::uint32_t indices_count, std::uint32_t instances_count,
+    std::uint32_t first_index, std::int32_t vertex_offset,
+    std::uint32_t first_instance
+) {
+  auto last_index = first_index + indices_count;
+  auto last_inst = first_instance + instances_count;
+  draw_internal<true>(
+      state, first_index, last_index, first_instance, last_inst, vertex_offset
+  );
+}
+
+template <bool Indexed>
+void graphics_pipeline_impl::draw_internal(
+    const render_pass::state &state,
+    std::uint32_t first, std::uint32_t last,
+    std::uint32_t first_inst, std::uint32_t last_inst,
+    std::int32_t vert_offset
+) {
   auto width = state.m_frame_buffer->width();
   auto height = state.m_frame_buffer->height();
   [[unlikely]] if (!width || !height) {
@@ -307,14 +338,12 @@ void graphics_pipeline_impl::draw(
     }
   }
 
-  auto last_vert = first_vertex + vertex_count;
-  auto last_inst = first_instance + instance_count;
   switch (vertex_assembly) {
     case primitive_topology::triangle_list:
-      draw_triangle_list(state, first_vertex, last_vert, first_instance, last_inst);
+      draw_triangle_list<Indexed>(state, first, last, first_inst, last_inst, vert_offset);
       break;
     case primitive_topology::triangle_strip:
-      draw_triangle_strip(state, first_vertex, last_vert, first_instance, last_inst);
+      draw_triangle_strip<Indexed>(state, first, last, first_inst, last_inst, vert_offset);
       break;
     case primitive_topology::line_strip:
       throw std::runtime_error("Unsupported topology line_strip.");
@@ -376,12 +405,25 @@ static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
   return cnt[pre];
 }
 
+template <bool Indexed>
+std::uint32_t graphics_pipeline_impl::actual_vertex(
+  std::uint32_t position, std::int32_t vert_offset
+) {
+  if constexpr (Indexed) {
+    return m_index_buffer[position] + vert_offset;
+  } else {
+    return position;
+  }
+}
+
+template <bool Indexed>
 void graphics_pipeline_impl::draw_triangle_list(
     const render_pass::state &state,
-    std::uint32_t first_vert, std::uint32_t last_vert,
-    std::uint32_t first_inst, std::uint32_t last_inst
+    std::uint32_t first, std::uint32_t last,
+    std::uint32_t first_inst, std::uint32_t last_inst,
+    std::int32_t vert_offset
 ) {
-  [[unlikely]] if (last_vert - first_inst <= 2) {
+  [[unlikely]] if (last - first <= 2) {
     return;
   }
 
@@ -404,7 +446,11 @@ void graphics_pipeline_impl::draw_triangle_list(
       auto it = m_vertex_shader_output;
       auto coord_it = clip_coords;
       for (auto i : indices) {
-        obtain_next_vertex_attribute(vertex_buffer, i);
+        obtain_next_vertex_attribute(
+          vertex_buffer,
+          actual_vertex<Indexed>(i, vert_offset)
+        );
+
         invoke_vertex_shader(
             state.m_descriptor_set,
             *it,
@@ -421,7 +467,7 @@ void graphics_pipeline_impl::draw_triangle_list(
       }
 
       auto start = indices[2];
-      if (start + 3 >= last_vert) break;
+      if (start + 3 >= last) break;
       indices[0] = start + 1;
       indices[1] = start + 2;
       indices[2] = start + 3;
@@ -429,12 +475,14 @@ void graphics_pipeline_impl::draw_triangle_list(
   }
 }
 
+template <bool Indexed>
 void graphics_pipeline_impl::draw_triangle_strip(
     const render_pass::state &state,
-    std::uint32_t first_vert, std::uint32_t last_vert,
-    std::uint32_t first_inst, std::uint32_t last_inst
+    std::uint32_t first, std::uint32_t last,
+    std::uint32_t first_inst, std::uint32_t last_inst,
+    std::int32_t vert_offset
 ) {
-  [[unlikely]] if (last_vert - first_inst <= 2) {
+  [[unlikely]] if (last - first <= 2) {
     return;
   }
 
@@ -452,7 +500,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
     // 需要先单独处理前三个顶点的顶点着色器
     for (auto i : indices) {
       // 顶点编号刚好对应数据位置，而下面的 while 循环则不能如此
-      obtain_next_vertex_attribute(vertex_buffer, i);
+      obtain_next_vertex_attribute(vertex_buffer, actual_vertex<Indexed>(i, vert_offset));
       invoke_vertex_shader(state.m_descriptor_set, m_vertex_shader_output[i], clip_coords[i]);
     }
 
@@ -462,7 +510,6 @@ void graphics_pipeline_impl::draw_triangle_strip(
 
     int ping_pong = 0;
     while (1) {
-
       auto vertex_cnt = clip_triangle(clip_coords, clipped);
       for (auto i = 1; i <= vertex_cnt - 2; ++i) {
         target[1] = clipped + i;
@@ -471,8 +518,11 @@ void graphics_pipeline_impl::draw_triangle_strip(
       }
 
       indices[ping_pong] += 3;
-      if (indices[ping_pong] == last_vert) break;
-      obtain_next_vertex_attribute(vertex_buffer, indices[ping_pong]);
+      if (indices[ping_pong] == last) break;
+      obtain_next_vertex_attribute(
+        vertex_buffer,
+        actual_vertex<Indexed>(indices[ping_pong], vert_offset)
+      );
       invoke_vertex_shader(
           state.m_descriptor_set,
           m_vertex_shader_output[ping_pong],

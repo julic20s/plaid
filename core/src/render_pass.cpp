@@ -111,3 +111,14 @@ void render_pass::state::draw(
       *this, vertex_count, instance_count, first_vertex, first_instance
   );
 }
+
+void render_pass::state::draw_indexed(
+  graphics_pipeline_impl *pipeline,
+  std::uint32_t indices_count, std::uint32_t instances_count,
+  std::uint32_t first_index, std::int32_t vertex_offset,
+  std::uint32_t first_instance
+) {
+  pipeline->draw_indexed(
+    *this, indices_count, instances_count, first_index, vertex_offset, first_instance
+  );
+}
