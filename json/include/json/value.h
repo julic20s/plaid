@@ -97,6 +97,15 @@ public:
 
   [[nodiscard]] operator std::span<member>() noexcept;
 
+  [[nodiscard]] inline bool as_bool() const noexcept { return *this; }
+
+  [[nodiscard]] inline double as_number() const noexcept { return *this; }
+
+  [[nodiscard]] inline std::string_view as_string() const noexcept { return *this; }
+
+  [[nodiscard]] inline std::span<const value> as_const_array() const noexcept { return *this; }
+
+  [[nodiscard]] inline std::span<value> as_array() noexcept { return *this; }
   /// 获取对象成员的值
   [[nodiscard]] const value &operator[](const char key[]) const noexcept;
 
