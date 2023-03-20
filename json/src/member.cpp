@@ -1,3 +1,5 @@
+#include <stdexcept>
+
 #include <json/member.h>
 
 using namespace plaid::json;
@@ -40,5 +42,20 @@ void member::key::bind_pointer(const string_pool &pool) {
   if (!m_sso_enabled) {
     m_pointer = pool[m_index];
     m_binded = true;
+  }
+}
+
+bool member::key::operator==(const key &rhs) const {
+  if (m_sso_enabled != rhs.m_sso_enabled) {
+    return false;
+  }
+  if (m_sso_enabled) {
+    return m_sso_length == rhs.m_sso_length && std::strcmp(&m_sso_first, &rhs.m_sso_first) == 0;
+  } else {
+    if (m_binded && rhs.m_binded) {
+      return std::strcmp(m_pointer, rhs.m_pointer) == 0;
+    } else {
+      throw std::runtime_error("Compare two unbinded key is not allowed.");
+    }
   }
 }

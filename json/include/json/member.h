@@ -7,7 +7,8 @@ namespace plaid::json {
 
 /// json 成员对象
 struct member {
-  struct key {
+  class key {
+  public:
     key() = default;
 
     key(std::string_view str, string_pool &);
@@ -17,6 +18,8 @@ struct member {
 
     /// 绑定关键字指针，如果给出的字符串池被过早销毁，则关键字将可能失效
     void bind_pointer(const string_pool &);
+
+    [[nodiscard]] bool operator==(const key &) const;
 
   private:
     /// 是否启用了短字符串优化
@@ -38,6 +41,10 @@ struct member {
   };
 
   member() noexcept;
+
+  [[nodiscard]] inline bool operator==(const member &rhs) const {
+    return key == rhs.key && value == rhs.value;
+  }
   
   key key;
   value value;

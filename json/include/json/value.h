@@ -116,6 +116,8 @@ public:
     return m_type == type::short_string ? m_short_length : m_extra;
   }
 
+  [[nodiscard]] bool operator==(const value &rhs) const;
+
 private:
   /// 记录节点类型
   enum class type m_type;
