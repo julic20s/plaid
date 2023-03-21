@@ -217,12 +217,19 @@ private:
       auto ch = tokens.next();
 
       if ('0' <= ch && ch <= '9') {
-        number = number * 10 + (ch ^ '0') * div;
-        if (div != 1) {
+        auto add = (ch ^ '0') * div;
+        if (div == 1) {
+          number = number * 10 + add;
+        } else {
+          number += add;
           div *= .1;
         }
       } else if (div == 1 && ch == '.') {
-        div = .1;
+        if (div == 1) {
+          div = .1;
+        } else {
+          throw std::runtime_error("");
+        }
       } else if (ch == ']' || ch == '}' || ch == ',') {
         break;
       } else {
