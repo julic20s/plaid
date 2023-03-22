@@ -241,6 +241,8 @@ constexpr std::span<const member> value::to_member_span() const noexcept {
   return *this;
 }
 
+constexpr value nullval;
+
 constexpr const value &value::operator[](const char key[]) const {
   if (!is_object()) {
     throw std::runtime_error("Key finding is only allowed for a object.");
@@ -261,7 +263,7 @@ constexpr const value &value::operator[](const char key[]) const {
       r = mid - 1;
     }
   }
-  throw std::runtime_error("Not found the member with given key.");
+  return nullval;
 }
 
 constexpr const value &value::operator[](std::uint32_t index) const {
@@ -358,8 +360,6 @@ constexpr member::key::operator std::string_view() const noexcept {
     return {pointer_, length_};
   }
 }
-
-constexpr value nullval;
 
 } // namespace plaid::json
 
