@@ -1,9 +1,9 @@
 #include <algorithm>
 #include <fstream>
-#include <stdexcept>
-#include <string>
+#include <vector>
 
 #include <json/dom.h>
+#include <json/except.h>
 
 using namespace plaid::json;
 
@@ -11,28 +11,28 @@ class token_stream {
 
 public:
   token_stream(std::istream &stream) noexcept
-      : m_skip_spaces(true), m_cur(0), m_stream(stream) {}
+      : skip_spaces_(true), cur_(0), stream_(stream) {}
 
   void skip_spaces(bool value) {
-    m_skip_spaces = value;
+    skip_spaces_ = value;
   }
 
   bool has_next() {
     while (true) {
-      if (m_cur == m_buf.size()) {
+      if (cur_ == buf_.size()) {
         if (!pull()) {
           return false;
         }
       }
-      if (m_skip_spaces) {
-        while (m_cur != m_buf.size()) {
-          if (!std::isspace(m_buf[m_cur])) {
+      if (skip_spaces_) {
+        while (cur_ != buf_.size()) {
+          if (!std::isspace(buf_[cur_])) {
             break;
           }
-          ++m_cur;
+          ++cur_;
         }
       }
-      if (m_cur != m_buf.size()) {
+      if (cur_ != buf_.size()) {
         return true;
       }
     }
@@ -40,181 +40,134 @@ public:
 
   char next() {
     while (true) {
-      if (m_cur == m_buf.size()) {
+      if (cur_ == buf_.size()) {
         if (!pull()) {
           throw std::runtime_error("");
         }
       }
-      if (m_skip_spaces) {
-        while (m_cur != m_buf.size()) {
-          if (!std::isspace(m_buf[m_cur])) {
+      if (skip_spaces_) {
+        while (cur_ != buf_.size()) {
+          if (!std::isspace(buf_[cur_])) {
             break;
           }
-          ++m_cur;
+          ++cur_;
         }
       }
-      if (m_cur != m_buf.size()) {
-
-        return m_buf[m_cur];
+      if (cur_ != buf_.size()) {
+        return buf_[cur_];
       }
     }
   }
 
   void consume() {
-    if (m_cur != m_buf.size()) {
-      ++m_cur;
+    if (cur_ != buf_.size()) {
+      ++cur_;
     } else {
       throw std::runtime_error("");
     }
   }
 
+  [[nodiscard]] std::uint32_t line() noexcept { return line_; }
+  [[nodiscard]] std::uint32_t column() noexcept { return column_; }
+
 private:
   bool pull() {
-    m_cur = 0;
-    m_buf.clear();
-    std::getline(m_stream, m_buf);
+    cur_ = 0;
+    buf_.clear();
+    std::getline(stream_, buf_);
     return true;
   }
 
-  bool m_skip_spaces;
-  std::size_t m_cur;
-  std::string m_buf;
-  std::istream &m_stream;
+  bool skip_spaces_;
+  std::uint32_t line_;
+  std::uint32_t column_;
+  std::size_t cur_;
+  std::string buf_;
+  std::istream &stream_;
 };
 
-class dom::parser : virtual value {
-private:
-  static void expect(const char pat[], token_stream &tokens) {
-    for (; *pat; ++pat, tokens.consume()) {
-      if (!tokens.has_next() || *pat != tokens.next()) {
+class parser : token_stream {
+
+  void expect(const char pat[]) {
+    for (; *pat; ++pat, consume()) {
+      if (!has_next() || *pat != next()) {
         throw std::runtime_error("");
       }
     }
   }
 
-  static void bind_pointers(dom &host, member &dst) {
-    dst.key.bind_pointer(host.m_string_pool);
-    bind_pointers(host, dst.value);
+  std::size_t parse_string_tokens(char buf[]) {
+    std::size_t cnt = 0;
+    consume(); // "
+    skip_spaces(false);
+    bool escape = false;
+    for (;; consume()) {
+      if (!has_next()) {
+        throw std::runtime_error("");
+      }
+
+      auto ch = next();
+      if (ch == '"') {
+        if (!escape) {
+          break;
+        }
+      }
+      if (ch == '\\') {
+        if (!escape) {
+          escape = true;
+          continue;
+        }
+      }
+      buf[cnt++] = ch;
+      escape = false;
+    }
+    consume();
+    skip_spaces(true);
+    return cnt;
   }
 
-  static void bind_pointers(dom &host, value &dst) {
-    if (dst.is_string()) {
-      dst.bind_string_pointer(host.m_string_pool);
-    } else if (dst.is_array()) {
-      dst.bind_array_pointer(host.m_values);
-      for (auto &v : std::span<value>(dst)) {
-        bind_pointers(host, v);
-      }
-    } else if (dst.is_object()) {
-      dst.bind_object_pointer(host.m_members);
-      for (auto &m : std::span<member>(dst)) {
-        bind_pointers(host, m);
-      }
-    }
-  }
-
-public:
-  static void parse(dom &host, token_stream &tokens) {
-    if (tokens.has_next()) {
-      auto ch = tokens.next();
-      if (ch == '[') {
-        parse_array(host, tokens, host);
-      } else if (ch == '{') {
-        parse_object(host, tokens, host);
-      } else {
-        throw std::runtime_error(std::string("Illegal character for the beginning: ") + ch);
-      }
-    } else {
-      throw std::runtime_error("There is no any thing in the file!");
-    }
-    bind_pointers(host, host);
-  }
-
-private:
-  static void parse_array(dom &host, token_stream &tokens, value &dst) {
-    tokens.consume(); // [
-    if (!tokens.has_next()) {
-      throw std::runtime_error("Unfinished array.");
-    }
-
-    std::vector<value> values;
-
-    while (tokens.has_next()) {
-      auto ch = tokens.next();
-
-      if (ch == ']') {
-        break;
-      }
-
-      if (ch == ',') {
-        tokens.consume();
-        ch = tokens.next();
-      }
-
-      value &current = values.emplace_back(value::nullval);
-      parse_value(host, tokens, current);
-    }
-
-    tokens.consume(); // ]
-
-    auto start = host.m_values.size();
-    host.m_values.reserve(start + values.size());
-    std::copy(values.begin(), values.end(), std::back_insert_iterator(host.m_values));
-    dst = {start, values.size(), value::array_flag};
-  }
-
-  static void parse_value(dom &host, token_stream &tokens, value &dst) {
-    auto ch = tokens.next();
+  value parse_value() {
+    auto ch = next();
     switch (ch) {
-      case '{':
-        parse_object(host, tokens, dst);
-        break;
+      case '{': return parse_object();
       case 't':
-      case 'f':
-        parse_boolean(host, tokens, dst);
-        break;
-      case '"':
-        parse_string(host, tokens, dst);
-        break;
-      case '[':
-        parse_array(host, tokens, dst);
-        break;
-      case 'n':
-        dst = value::nullval;
-        break;
+      case 'f': return parse_bool();
+      case '"': return parse_string();
+      case '[': return parse_array();
+      case 'n': return nullval;
       default:
         if (ch == '-' || ('0' <= ch && ch <= '9')) {
-          parse_number(host, tokens, dst);
-        } else {
-          throw std::runtime_error("Unexpected character!");
+          return parse_number();
         }
     }
+    throw std::runtime_error("Unexpected character!");
   }
 
-  static void parse_boolean(dom &host, token_stream &tokens, value &dst) {
-    auto ch = tokens.next();
+  value parse_bool() {
+    auto ch = next();
     if (ch == 't') {
-      expect("true", tokens);
-      dst = true;
+      expect("true");
+      return true;
     } else if (ch == 'f') {
-      expect("false", tokens);
-      dst = false;
+      expect("false");
+      return false;
     }
+    throw 0;
   }
 
-  static void parse_number(dom &host, token_stream &tokens, value &dst) {
+  value parse_number() {
     double sgn = 1, number = 0;
-    if (tokens.next() == '-') {
+    if (next() == '-') {
       sgn = -1;
-      tokens.consume();
+      consume();
     }
 
     double div = 1;
     while (true) {
-      if (!tokens.has_next()) {
+      if (!has_next()) {
         break;
       }
-      auto ch = tokens.next();
+      auto ch = next();
 
       if ('0' <= ch && ch <= '9') {
         auto add = (ch ^ '0') * div;
@@ -228,110 +181,151 @@ private:
         if (div == 1) {
           div = .1;
         } else {
-          throw std::runtime_error("");
+          const char actual[] = {ch, '\0'};
+          throw json_parsing_error(line(), column(), "[0-9]", actual);
         }
       } else if (ch == ']' || ch == '}' || ch == ',') {
         break;
       } else {
-        throw std::runtime_error("");
+        const char actual[] = {ch, '\0'};
+        throw json_parsing_error(line(), column(), "", actual);
       }
 
-      tokens.consume();
+      consume();
     }
 
-    dst = sgn * number;
+    return sgn * number;
   }
 
-  static void parse_string(dom &host, token_stream &tokens, value &dst) {
+  value parse_string() {
     char str_buf[1 << 10];
-    auto cnt = parse_string_tokens(host, tokens, str_buf);
-    dst = value(std::string_view(str_buf, cnt), host.m_string_pool);
-  }
-
-  static std::size_t parse_string_tokens(dom &host, token_stream &tokens, char dst[]) {
-    std::size_t cnt = 0;
-    tokens.consume(); // "
-    tokens.skip_spaces(false);
-    bool escape = false;
-    for (;; tokens.consume()) {
-      if (!tokens.has_next()) {
-        throw std::runtime_error("");
-      }
-
-      auto ch = tokens.next();
-      if (ch == '"') {
-        if (!escape) {
-          break;
-        }
-      }
-      if (ch == '\\') {
-        if (!escape) {
-          escape = true;
-          continue;
-        }
-      }
-      dst[cnt++] = ch;
-      escape = false;
+    auto cnt = parse_string_tokens(str_buf);
+    value val = std::string_view(str_buf, cnt);
+    if (val.is_short_string_optimized()) {
+      return val;
     }
-    tokens.consume();
-    tokens.skip_spaces(true);
-    return cnt;
+    auto heap_buf = reinterpret_cast<char *>(pool_.aquire(cnt + 1));
+    std::memcpy(heap_buf, str_buf, cnt);
+    heap_buf[cnt] = '\0';
+    return std::string_view(heap_buf, cnt);
   }
 
-  static void parse_object(dom &host, token_stream &tokens, value &dst) {
-    tokens.consume(); // {
+  value parse_array() {
+    consume(); // [
+    if (!has_next()) {
+      throw std::runtime_error("Unfinished array.");
+    }
+
+    // 保存当前数组所有成员
+    std::vector<value> arr_values;
+
+    while (has_next()) {
+      auto ch = next();
+
+      if (ch == ']') {
+        break;
+      }
+
+      if (ch == ',') {
+        consume();
+        ch = next();
+      }
+
+      arr_values.emplace_back(parse_value());
+    }
+
+    consume(); // ]
+
+    value *ptr = nullptr;
+    if (arr_values.size()) {
+      ptr = reinterpret_cast<value *>(pool_.aquire(sizeof(value) * arr_values.size()));
+    }
+    std::uninitialized_copy(arr_values.begin(), arr_values.end(), ptr);
+    return std::span<const value>(ptr, arr_values.size());
+  }
+
+  value parse_object() {
+    consume(); // {
 
     std::vector<member> members;
     while (true) {
-      if (!tokens.has_next()) {
+      if (!has_next()) {
         throw std::runtime_error("Unexcepted end!");
       }
 
-      auto ch = tokens.next();
+      auto ch = next();
       if (ch == '}') {
         break;
       }
 
       if (ch == ',') {
-        tokens.consume();
-        ch = tokens.next();
+        consume();
+        ch = next();
       }
 
-      auto &current = members.emplace_back();
       if (ch == '"') {
-        parse_member(host, tokens, current);
+        members.emplace_back(parse_member());
+      } else {
+        throw std::runtime_error("");
       }
     }
 
-    tokens.consume(); // }
+    consume(); // }
 
-    auto pool = &host.m_string_pool;
-    std::sort(members.begin(), members.end(), [pool](const member &a, const member &b) {
-      return a.key.find(pool) < b.key.find(pool);
+    std::sort(members.begin(), members.end(), [](const member &a, const member &b) {
+      return std::string_view(a.key) < std::string_view(b.key);
     });
 
-    auto old_size = host.m_members.size();
-    host.m_members.reserve(old_size + members.size());
-    std::copy(members.begin(), members.end(), std::back_insert_iterator(host.m_members));
-
-    dst = {old_size, members.size(), value::object_flag};
+    member *ptr = nullptr;
+    if (members.size()) {
+      ptr = reinterpret_cast<member *>(pool_.aquire(sizeof(member) * members.size()));
+      std::uninitialized_copy(members.begin(), members.end(), ptr);
+    }
+    return std::span<const member>(ptr, members.size());
   }
 
-  static void parse_member(dom &host, token_stream &tokens, member &dst) {
-    parse_key(host, tokens, dst.key);
-    expect(":", tokens);
-    parse_value(host, tokens, dst.value);
-  }
-
-  static void parse_key(dom &host, token_stream &tokens, struct member::key &key) {
+  struct member::key parse_key() {
     char str_buf[1 << 10];
-    auto cnt = parse_string_tokens(host, tokens, str_buf);
-    key = {{str_buf, cnt}, host.m_string_pool};
+    auto cnt = parse_string_tokens(str_buf);
+    class member::key stack_key = std::string_view(str_buf, cnt);
+    if (stack_key.is_short_string_optimized()) {
+      return stack_key;
+    } else {
+      auto mem = reinterpret_cast<char *>(pool_.aquire(cnt + 1));
+      std::memcpy(mem, str_buf, cnt);
+      mem[cnt] = '\0';
+      return std::string_view(mem, cnt);
+    }
   }
+
+  member parse_member() {
+    return {parse_key(), (expect(":"), parse_value())};
+  }
+
+public:
+  parser(std::istream &stream, chunked_pool &pool) noexcept
+      : token_stream(stream), pool_(pool) {}
+
+  value parse() {
+    if (has_next()) {
+      auto ch = next();
+      if (ch == '[') {
+        return parse_array();
+      } else if (ch == '{') {
+        return parse_object();
+      } else {
+        throw std::runtime_error(std::string("Illegal character for the beginning: ") + ch);
+      }
+    } else {
+      throw std::runtime_error("There is no any thing in the file!");
+    }
+  }
+
+private:
+  chunked_pool &pool_;
 };
 
-dom::dom(const char *file) : value(value::nullval) {
+dom::dom(const char *file) {
   std::ifstream stream(file);
-  token_stream ts(stream);
-  parser::parse(*this, ts);
+  *static_cast<value *>(this) = parser(stream, pool_).parse();
 }
