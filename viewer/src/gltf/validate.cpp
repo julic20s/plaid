@@ -81,13 +81,16 @@ void plaid::viewer::gltf::validate(const dom &gltf) {
       {"textures", validates::textures, false},
   };
 
-  auto it = gltf.to_member_span().begin();
+  auto members = gltf.to_member_span();
+  auto it = members.begin();
   for (auto &fd : fields) {
-    while (fd.name > std::string_view(it->key)) {
+    while (it != members.end() && fd.name > std::string_view(it->key)) {
       ++it;
     }
-    if (fd.name == std::string_view(it->key)) {
+
+    if (it != members.end() && fd.name == std::string_view(it->key)) {
       fd.func(it->value);
+      ++it;
     } else if (fd.required) {
       throw format_error(std::string(fd.name) + " is a required field.");
     }
