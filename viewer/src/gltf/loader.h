@@ -41,6 +41,8 @@ private:
   /// 读取所有缓冲区信息
   void read_buffers(const json::dom &);
 
+  void read_cameras(const json::dom &);
+
   std::unique_ptr<scene[]> scenes_;
   /// 场景根节点索引池
   std::unique_ptr<std::uint32_t[]> scenes_roots_pool_;
@@ -61,6 +63,7 @@ private:
   };
 
   /// 通过二分根据节点索引查找相机下标
+  std::uint32_t cameras_count_;
   std::unique_ptr<camera_index[]> cameras_indices_;
   std::unique_ptr<camera[]> cameras_;
 

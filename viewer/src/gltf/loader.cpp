@@ -19,6 +19,7 @@ void loader::load(const dom &gltf, bool do_validate) {
   read_scenes(gltf);
   read_nodes(gltf);
   read_buffers(gltf);
+  read_cameras(gltf);
 }
 
 void loader::read_nodes(const dom &gltf) {
@@ -55,6 +56,12 @@ void loader::read_scenes(const dom &gltf) {
   } else {
     def_scene_ = no_default_scene;
   }
+
+  if (scenes_json == nullval) {
+    scenes_size_ = 0;
+    return;
+  }
+
   scenes_size_ = scenes_json.size();
 
   // 为场景申请内存
@@ -95,6 +102,15 @@ void loader::read_buffers(const dom &gltf) {
     }
     ++it;
   }
+}
+
+void loader::read_cameras(const dom &gltf) {
+  auto cameras_json = gltf["cameras"];
+  if (cameras_json == nullval) {
+    cameras_count_ = 0;
+    return;
+  }
+  
 }
 
 bool loader::has_default_scene() const noexcept {
