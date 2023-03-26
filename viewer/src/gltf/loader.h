@@ -27,13 +27,13 @@ public:
   [[nodiscard]] std::uint32_t default_scene() const;
 
   /// 获取场景总数
-  [[nodiscard]] std::uint32_t scene_size() const;
+  [[nodiscard]] std::uint32_t scene_size() const noexcept;
 
   /// 加载场景
   [[nodiscard]] const scene &load_scene(std::uint32_t index);
 
   /// 根据 ID 查找节点
-  [[nodiscard]] const node &find_node(std::uint32_t id);
+  [[nodiscard]] const node &find_node(std::uint32_t id) const noexcept;
 
 private:
   /// 读取所有节点信息
@@ -62,5 +62,13 @@ private:
   /// bin 文件缓冲区
   std::map<std::string, std::byte *> buffers_;
 };
+
+inline std::uint32_t loader::scene_size() const noexcept {
+  return scenes_size_;
+}
+
+inline const node &loader::find_node(std::uint32_t id) const noexcept {
+  return nodes_[id];
+}
 
 } // namespace plaid::viewer::gltf

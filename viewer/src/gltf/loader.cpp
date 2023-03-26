@@ -86,14 +86,6 @@ bool loader::has_default_scene() const noexcept {
   return def_scene_ != no_default_scene;
 }
 
-std::uint32_t loader::default_scene() const {
-  return def_scene_;
-}
-
-std::uint32_t loader::scene_size() const {
-  return scenes_size_;
-}
-
 const scene &loader::load_scene(std::uint32_t index) {
   if (index >= scene_size()) {
     throw std::out_of_range("Illegal index of scene.");
@@ -103,3 +95,5 @@ const scene &loader::load_scene(std::uint32_t index) {
 
   return scenes_[index];
 }
+
+
