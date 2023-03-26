@@ -10,12 +10,9 @@
 #include "../scene/camera.h"
 #include "renderer.h"
 
-
 namespace plaid::viewer::gltf {
+
 class loader;
-}
-
-namespace plaid::viewer::gltf {
 
 class scene {
 public:
@@ -28,10 +25,10 @@ public:
   /// 切换到给定节点 id 所绑定的相机，
   void switch_camera(std::uint32_t id);
 
+  /// 根节点编号
   std::span<const std::uint32_t> nodes;
 
 private:
-  /// 根节点编号
   renderer renderer_;
 };
 
