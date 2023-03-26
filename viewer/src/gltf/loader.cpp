@@ -18,6 +18,7 @@ void loader::load(const dom &gltf, bool do_validate) {
   }
   read_scenes(gltf);
   read_nodes(gltf);
+  read_buffers(gltf);
 }
 
 void loader::read_nodes(const dom &gltf) {
@@ -79,6 +80,20 @@ void loader::read_scenes(const dom &gltf) {
       ++sc_root_it;
     }
     ++scene_it;
+  }
+}
+
+void loader::read_buffers(const dom &gltf) {
+  auto buffers_json = gltf["buffers"];
+  buffers_ = std::make_unique<buffer[]>(buffers_json.size());
+  auto it = buffers_.get();
+  for (auto &buf_json : buffers_json.to_value_span()) {
+    it->byte_length = buf_json["byteLength"].to_double();
+    auto &uri_json = buf_json["uri"];
+    if (uri_json != nullval) {
+      it->uri = uri_json.to_string_view();
+    }
+    ++it;
   }
 }
 

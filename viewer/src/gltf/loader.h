@@ -1,10 +1,6 @@
 #pragma once
 
-#include <map>
 #include <memory>
-#include <string>
-
-#include <plaid/mat.h>
 
 #include <json/dom.h>
 
@@ -42,6 +38,9 @@ private:
   /// 读取所有场景信息
   void read_scenes(const json::dom &);
 
+  /// 读取所有缓冲区信息
+  void read_buffers(const json::dom &);
+
   std::unique_ptr<scene[]> scenes_;
   /// 场景根节点索引池
   std::unique_ptr<std::uint32_t[]> scenes_roots_pool_;
@@ -56,11 +55,23 @@ private:
   /// 场景个数
   std::uint32_t scenes_size_;
 
-  /// 根据节点索引查找相机
-  std::map<std::uint32_t, camera> cameras_;
+  struct camera_index {
+    std::uint32_t node;
+    std::uint32_t index;
+  };
+
+  /// 通过二分根据节点索引查找相机下标
+  std::unique_ptr<camera_index[]> cameras_indices_;
+  std::unique_ptr<camera[]> cameras_;
+
+  struct buffer {
+    std::size_t byte_length;
+    std::string uri;
+    std::unique_ptr<std::byte[]> data;
+  };
 
   /// bin 文件缓冲区
-  std::map<std::string, std::byte *> buffers_;
+  std::unique_ptr<buffer[]> buffers_;
 };
 
 inline std::uint32_t loader::scene_size() const noexcept {
