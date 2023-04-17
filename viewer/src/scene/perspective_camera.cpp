@@ -1,6 +1,8 @@
 #include <plaid/transition.h>
 
-#include "camera.h"
+#include "perspective_camera.h"
+
+using namespace plaid::viewer;
 
 camera::camera(
     const plaid::vec3 &position, const plaid::vec3 &orbit,

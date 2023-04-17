@@ -4,6 +4,7 @@
 #include "validate.h"
 
 using namespace plaid::json;
+using namespace plaid::viewer;
 using namespace plaid::viewer::gltf;
 
 static constexpr auto no_default_scene = ~std::uint32_t(0);
@@ -19,6 +20,7 @@ void loader::load(const dom &gltf, bool do_validate) {
   read_scenes(gltf);
   read_nodes(gltf);
   read_buffers(gltf);
+  read_buffer_views(gltf);
   read_cameras(gltf);
 }
 
@@ -104,13 +106,65 @@ void loader::read_buffers(const dom &gltf) {
   }
 }
 
+void loader::read_buffer_views(const dom &gltf) {
+  auto buffer_views_json = gltf["bufferViews"];
+  if (buffer_views_json == nullval || !buffer_views_json.size()) {
+    return;
+  }
+
+  buffer_views_ = std::make_unique<buffer_view[]>(buffer_views_json.size());
+
+  auto it = buffer_views_.get();
+  for (auto &bv_json : buffer_views_json.to_value_span()) {
+    it->buffer = bv_json["buffer"].to_double();
+    auto offset_json = bv_json["byteOffset"];
+    it->byte_offset = offset_json != nullval ? offset_json.to_double() : 0;
+  }
+}
+
+static void read_perspective_camera(value val, camera &dst) {
+  auto yfov = val["yfov"].to_double();
+  auto znear = val["znear"].to_double();
+
+  auto &ratio_json = val["aspectRatio"];
+  double ratio = std::numeric_limits<double>::infinity();
+  if (ratio_json != nullval) {
+    ratio = ratio_json.to_double();
+  }
+
+  auto &zfar_json = val["zfar"];
+  double zfar = std::numeric_limits<double>::infinity();
+  if (zfar_json != nullval) {
+    zfar = zfar_json.to_double();
+  }
+  // TODO
+}
+
+static void read_orthographic_camera(value val, camera &dst) {
+  // TODO
+}
+
 void loader::read_cameras(const dom &gltf) {
   auto cameras_json = gltf["cameras"];
   if (cameras_json == nullval) {
     cameras_count_ = 0;
     return;
   }
-  
+  cameras_count_ = cameras_json.size();
+
+  cameras_ = std::make_unique<camera[]>(cameras_count_);
+
+  auto it = cameras_.get();
+  for (auto &cam_json : cameras_json.to_value_span()) {
+    auto &type_json = cam_json["type"];
+    auto type_str = type_json.to_string_view();
+    if (type_str == "perspective") {
+      read_perspective_camera(cam_json["perspective"], *it);
+    } else {
+      read_orthographic_camera(cam_json["orthographic"], *it);
+    }
+    ++it;
+  }
 }
 
 bool loader::has_default_scene() const noexcept {
@@ -126,5 +180,3 @@ const scene &loader::load_scene(std::uint32_t index) {
 
   return scenes_[index];
 }
-
-

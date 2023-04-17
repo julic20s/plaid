@@ -10,8 +10,9 @@
 
 #include "blinn_phong.hpp"
 #include "data/obj_model.h"
+#include "gltf/loader.h"
 #include "platform/window.h"
-#include "scene/camera.h"
+#include "scene/perspective_camera.h"
 
 constexpr plaid::mat4x4 model{{
     {0.05, 0, 0, 0},
@@ -26,7 +27,7 @@ plaid::frame_buffer viewer_frame_buffer;
 std::unique_ptr<float[]> depth_buffer;
 std::uint32_t size;
 
-camera viewer_cam({2, 0, -1}, {}, 0.5, 60, std::numbers::pi / 18, 1);
+plaid::viewer::camera viewer_cam({2, 0, -1}, {}, 0.5, 60, std::numbers::pi / 18, 1);
 plaid::mat4x4 mvp;
 
 /// 初始化渲染通道

@@ -7,7 +7,7 @@
 
 #include <plaid/mat.h>
 
-#include "../scene/camera.h"
+#include "../scene/perspective_camera.h"
 #include "renderer.h"
 
 namespace plaid::viewer::gltf {

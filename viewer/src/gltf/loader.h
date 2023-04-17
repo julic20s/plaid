@@ -41,6 +41,9 @@ private:
   /// 读取所有缓冲区信息
   void read_buffers(const json::dom &);
 
+  /// 读取所有缓冲区视图
+  void read_buffer_views(const json::dom &);
+
   void read_cameras(const json::dom &);
 
   std::unique_ptr<scene[]> scenes_;
@@ -66,6 +69,16 @@ private:
   std::uint32_t cameras_count_;
   std::unique_ptr<camera_index[]> cameras_indices_;
   std::unique_ptr<camera[]> cameras_;
+
+  struct buffer_view {
+    std::uint32_t buffer;
+    std::uint32_t byte_offset;
+    std::uint32_t byte_length;
+    std::uint32_t byte_stride;
+    std::uint32_t target;
+  };
+
+  std::unique_ptr<buffer_view[]> buffer_views_;
 
   struct buffer {
     std::size_t byte_length;

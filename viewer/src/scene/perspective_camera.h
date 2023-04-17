@@ -4,12 +4,15 @@
 
 #include <plaid/mat.h>
 
+namespace plaid::viewer {
+
 class camera {
 public:
+  camera() = default;
 
   camera(
-    const plaid::vec3 &position, const plaid::vec3 &orbit,
-    float near, float far, float fovy, float ratio
+      const plaid::vec3 &position, const plaid::vec3 &orbit,
+      float near, float far, float fovy, float ratio
   );
 
   [[nodiscard]] plaid::mat4x4 view();
@@ -62,5 +65,7 @@ private:
   /// 相机宽高比
   float m_ratio;
 };
+
+} // namespace plaid::viewer
 
 #endif
