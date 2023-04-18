@@ -135,10 +135,6 @@ void shader::entry(
   (shader.*Entry)();
 }
 
-// 匹配不同类型变量的 format
-template <class Ty>
-struct attribute_format_matcher;
-
 class dsl_shader_module : public shader_module {
 private:
   template <auto>
@@ -286,13 +282,34 @@ struct shader::location {
   };
 
   template <class Ty>
-  struct out {
+  class out {
+  private:
+    // 匹配不同类型变量的 format
+    template <class>
+    struct attribute_format_matcher;
+
+    template <>
+    struct attribute_format_matcher<vec2> {
+      static constexpr auto format = format::RG32f;
+    };
+
+    template <>
+    struct attribute_format_matcher<vec3> {
+      static constexpr auto format = format::RGB32f;
+    };
+
+    template <>
+    struct attribute_format_matcher<vec4> {
+      static constexpr auto format = format::RGBA32f;
+    };
+
+  public:
     out() = default;
 
     out(dsl_shader_module &m) noexcept {
       // 把自身属性填入数组
       m.variables_meta.outputs[m.variables_meta.outputs_count++] =
-          shader_stage_variable_description {
+          shader_stage_variable_description{
               .format = attribute_format_matcher<Ty>::format,
               .location = Loc,
               .size = sizeof(Ty),
@@ -322,21 +339,6 @@ struct shader::binding {
       return *reinterpret_cast<const Ty *const>((*shader->uniform)[Bd]);
     }
   };
-};
-
-template <>
-struct attribute_format_matcher<vec2> {
-  static constexpr auto format = format::RG32f;
-};
-
-template <>
-struct attribute_format_matcher<vec3> {
-  static constexpr auto format = format::RGB32f;
-};
-
-template <>
-struct attribute_format_matcher<vec4> {
-  static constexpr auto format = format::RGBA32f;
 };
 
 #endif
