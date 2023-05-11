@@ -3,12 +3,16 @@
 
 #include <plaid/frame_buffer.h>
 
-#include "graphics_pipeline_internal.h"
+#include "graphics_pipeline_cache.h"
 
 using namespace plaid;
 
 graphics_pipeline::graphics_pipeline(const graphics_pipeline::create_info &info) {
   cache_ = new graphics_pipeline_cache(info);
+}
+
+graphics_pipeline::graphics_pipeline(const graphics_pipeline_cache &cache) {
+  cache_ = new graphics_pipeline_cache(cache);
 }
 
 graphics_pipeline::graphics_pipeline(graphics_pipeline &&mov) noexcept {

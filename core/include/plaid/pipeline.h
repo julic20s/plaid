@@ -29,7 +29,7 @@ public:
   /// 创建一个空的管道指针
   graphics_pipeline() : cache_(nullptr) {}
 
-  graphics_pipeline(graphics_pipeline_cache &cache);
+  graphics_pipeline(const graphics_pipeline_cache &cache);
 
   /// 根据参数创建管道
   /// @param info 图形管道参数
