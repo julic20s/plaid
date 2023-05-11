@@ -1,6 +1,6 @@
 #include <algorithm>
 
-#include "graphics_pipeline_internal.h"
+#include "graphics_pipeline_cache.h"
 
 using namespace plaid;
 

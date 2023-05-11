@@ -111,7 +111,7 @@ struct member {
     /// 记录短字符串长度
     std::uint8_t sso_length_;
     /// 标记短字符串的第一个字符
-    char sso_first_;
+    char sso_[0];
     /// 记录长度
     std::uint32_t length_;
     /// 指向关键字的指针
@@ -322,8 +322,8 @@ constexpr std::uint32_t value::size() const noexcept {
     return false;
   }
   if (lhs.sso_enabled_) {
-    std::string_view l(&lhs.sso_first_, lhs.sso_length_);
-    std::string_view r(&rhs.sso_first_, rhs.sso_length_);
+    std::string_view l(lhs.sso_, lhs.sso_length_);
+    std::string_view r(rhs.sso_, rhs.sso_length_);
     return l == r;
   } else {
     std::string_view l(lhs.pointer_, lhs.length_);
@@ -337,12 +337,12 @@ constexpr std::uint32_t value::size() const noexcept {
 }
 
 constexpr member::key::key(std::string_view str) {
-  constexpr auto sso_capacity = sizeof(key) - offsetof(key, sso_first_) - 1;
+  constexpr auto sso_capacity = sizeof(key) - offsetof(key, sso_) - 1;
   sso_enabled_ = str.size() <= sso_capacity;
   if (sso_enabled_) {
     sso_length_ = str.size();
-    std::memcpy(&sso_first_, str.data(), sso_length_);
-    (&sso_first_)[sso_length_] = '\0';
+    std::memcpy(&sso_, str.data(), sso_length_);
+    sso_[sso_length_] = '\0';
   } else {
     length_ = str.size();
     pointer_ = str.data();
@@ -355,7 +355,7 @@ constexpr bool member::key::is_short_string_optimized() const noexcept {
 
 constexpr member::key::operator std::string_view() const noexcept {
   if (sso_enabled_) {
-    return {&sso_first_, sso_length_};
+    return {sso_, sso_length_};
   } else {
     return {pointer_, length_};
   }

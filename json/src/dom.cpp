@@ -1,5 +1,6 @@
+#include <cstdio>
+
 #include <algorithm>
-#include <fstream>
 #include <vector>
 
 #include <json/dom.h>
@@ -9,104 +10,101 @@ using namespace plaid::json;
 
 class token_stream {
 
+  static constexpr std::size_t buffer_size_ = 4096;
+
 public:
-  token_stream(std::istream &stream) noexcept
-      : skip_spaces_(true), cur_(0), stream_(stream) {}
+  token_stream(const char *file)
+      : skip_spaces_(true), maybe_(true), cur_(0), end_(0) {
+    file_ = fopen(file, "r");
+    if (file_ == nullptr) {
+      throw std::runtime_error("");
+    }
+  }
 
   void skip_spaces(bool value) {
     skip_spaces_ = value;
   }
 
-  bool has_next() {
-    while (true) {
-      if (cur_ == buf_.size()) {
-        if (!pull()) {
-          return false;
+  char peek() {
+    for (;;) {
+      if (cur_ == end_) {
+        if (maybe_) {
+          pull();
+          continue;
         }
+        return EOF;
       }
-      if (skip_spaces_) {
-        while (cur_ != buf_.size()) {
-          if (!std::isspace(buf_[cur_])) {
-            break;
-          }
-          ++cur_;
-        }
-      }
-      if (cur_ != buf_.size()) {
-        return true;
-      }
-    }
-  }
 
-  char next() {
-    while (true) {
-      if (cur_ == buf_.size()) {
-        if (!pull()) {
-          throw std::runtime_error("");
-        }
+      if (buf_[cur_] == '\n') {
+        ++line_;
+        column_ = 0;
+      } else {
+        ++column_;
       }
-      if (skip_spaces_) {
-        while (cur_ != buf_.size()) {
-          if (!std::isspace(buf_[cur_])) {
-            break;
-          }
-          ++cur_;
-        }
+
+      if (skip_spaces_ && std::isspace(buf_[cur_])) {
+        ++cur_;
+        continue;
       }
-      if (cur_ != buf_.size()) {
-        return buf_[cur_];
-      }
+
+      break;
     }
+
+    return buf_[cur_];
   }
 
   void consume() {
-    if (cur_ != buf_.size()) {
-      ++cur_;
-    } else {
+    if (peek() == EOF) {
       throw std::runtime_error("");
     }
+    ++cur_;
   }
 
   [[nodiscard]] std::uint32_t line() noexcept { return line_; }
   [[nodiscard]] std::uint32_t column() noexcept { return column_; }
 
 private:
-  bool pull() {
+  void pull() {
+    if (!maybe_) {
+      return;
+    }
+    constexpr auto cap = std::extent_v<decltype(buf_)>;
+    auto cnt = fread(buf_, 1, cap, file_);
+    if (cnt < cap) {
+      maybe_ = false;
+    }
     cur_ = 0;
-    buf_.clear();
-    std::getline(stream_, buf_);
-    return true;
   }
 
-  bool skip_spaces_;
-  std::uint32_t line_;
-  std::uint32_t column_;
-  std::size_t cur_;
-  std::string buf_;
-  std::istream &stream_;
+  bool skip_spaces_, maybe_;
+  std::uint32_t line_, column_;
+  std::uint32_t cur_, end_;
+  FILE *file_;
+  char buf_[buffer_size_];
 };
 
 class parser : token_stream {
 
   void expect(const char pat[]) {
     for (; *pat; ++pat, consume()) {
-      if (!has_next() || *pat != next()) {
+      if (*pat != peek()) {
         throw std::runtime_error("");
       }
     }
   }
 
-  std::size_t parse_string_tokens(char buf[]) {
-    std::size_t cnt = 0;
+  [[nodiscard]] std::size_t read_string_tokens_(char buf[]) {
     consume(); // "
     skip_spaces(false);
-    bool escape = false;
-    for (;; consume()) {
-      if (!has_next()) {
+
+    std::size_t cnt = 0;
+    for (bool escape = false;; consume()) {
+      auto ch = peek();
+
+      if (ch == EOF) {
         throw std::runtime_error("");
       }
 
-      auto ch = next();
       if (ch == '"') {
         if (!escape) {
           break;
@@ -118,33 +116,36 @@ class parser : token_stream {
           continue;
         }
       }
+      
       buf[cnt++] = ch;
       escape = false;
     }
-    consume();
+    buf[cnt] = '\0';
+
+    consume(); // "
     skip_spaces(true);
     return cnt;
   }
 
-  value parse_value() {
-    auto ch = next();
+  [[nodiscard]] value value_() {
+    auto ch = peek();
     switch (ch) {
-      case '{': return parse_object();
+      case '{': return object_();
       case 't':
-      case 'f': return parse_bool();
-      case '"': return parse_string();
-      case '[': return parse_array();
+      case 'f': return bool_();
+      case '"': return string_();
+      case '[': return array_();
       case 'n': return nullval;
       default:
         if (ch == '-' || ('0' <= ch && ch <= '9')) {
-          return parse_number();
+          return number_();
         }
     }
     throw std::runtime_error("Unexpected character!");
   }
 
-  value parse_bool() {
-    auto ch = next();
+  [[nodiscard]] value bool_() {
+    auto ch = peek();
     if (ch == 't') {
       expect("true");
       return true;
@@ -152,22 +153,23 @@ class parser : token_stream {
       expect("false");
       return false;
     }
-    throw 0;
+    char str[2] {ch};
+    throw json_parsing_error(line(), column(), "true/false", str);
   }
 
-  value parse_number() {
+  [[nodiscard]] value number_() {
     double sgn = 1, number = 0;
-    if (next() == '-') {
+    if (peek() == '-') {
       sgn = -1;
       consume();
     }
 
     double div = 1;
     while (true) {
-      if (!has_next()) {
+      auto ch = peek();
+      if (ch == EOF) {
         break;
       }
-      auto ch = next();
 
       if ('0' <= ch && ch <= '9') {
         auto add = (ch ^ '0') * div;
@@ -197,41 +199,42 @@ class parser : token_stream {
     return sgn * number;
   }
 
-  value parse_string() {
+  value string_() {
     char str_buf[1 << 10];
-    auto cnt = parse_string_tokens(str_buf);
+    auto cnt = read_string_tokens_(str_buf);
     value val = std::string_view(str_buf, cnt);
     if (val.is_short_string_optimized()) {
       return val;
     }
     auto heap_buf = reinterpret_cast<char *>(pool_.aquire(cnt + 1));
-    std::memcpy(heap_buf, str_buf, cnt);
-    heap_buf[cnt] = '\0';
+    std::memcpy(heap_buf, str_buf, cnt + 1);
     return std::string_view(heap_buf, cnt);
   }
 
-  value parse_array() {
+  value array_() {
     consume(); // [
-    if (!has_next()) {
-      throw std::runtime_error("Unfinished array.");
-    }
-
+  
     // 保存当前数组所有成员
     std::vector<value> arr_values;
 
-    while (has_next()) {
-      auto ch = next();
+
+    for (bool first = true;;) {
+      auto ch = peek();
+
+      if (ch == EOF) {
+        throw std::runtime_error("Unfinished array.");
+      }
 
       if (ch == ']') {
         break;
       }
 
-      if (ch == ',') {
+      if (!first && ch == ',') {
         consume();
-        ch = next();
       }
 
-      arr_values.emplace_back(parse_value());
+      arr_values.emplace_back(value_());
+      first = false;
     }
 
     consume(); // ]
@@ -244,29 +247,28 @@ class parser : token_stream {
     return std::span<const value>(ptr, arr_values.size());
   }
 
-  value parse_object() {
+  value object_() {
     consume(); // {
 
     std::vector<member> members;
     while (true) {
-      if (!has_next()) {
+      auto ch = peek();
+      if (ch == EOF) {
         throw std::runtime_error("Unexcepted end!");
       }
-
-      auto ch = next();
+      
       if (ch == '}') {
         break;
       }
 
-      if (ch == ',') {
-        consume();
-        ch = next();
-      }
-
       if (ch == '"') {
-        members.emplace_back(parse_member());
+        members.emplace_back(member_());
       } else {
         throw std::runtime_error("");
+      }
+
+      if (peek() == ',') {
+        consume();
       }
     }
 
@@ -284,9 +286,9 @@ class parser : token_stream {
     return std::span<const member>(ptr, members.size());
   }
 
-  struct member::key parse_key() {
+  struct member::key key_() {
     char str_buf[1 << 10];
-    auto cnt = parse_string_tokens(str_buf);
+    auto cnt = read_string_tokens_(str_buf);
     class member::key stack_key = std::string_view(str_buf, cnt);
     if (stack_key.is_short_string_optimized()) {
       return stack_key;
@@ -298,26 +300,20 @@ class parser : token_stream {
     }
   }
 
-  member parse_member() {
-    return {parse_key(), (expect(":"), parse_value())};
+  member member_() {
+    return {key_(), (expect(":"), value_())};
   }
 
 public:
-  parser(std::istream &stream, chunked_pool &pool) noexcept
-      : token_stream(stream), pool_(pool) {}
+  parser(const char *file, chunked_pool &pool) noexcept
+      : token_stream(file), pool_(pool) {}
 
   value parse() {
-    if (has_next()) {
-      auto ch = next();
-      if (ch == '[') {
-        return parse_array();
-      } else if (ch == '{') {
-        return parse_object();
-      } else {
-        throw std::runtime_error(std::string("Illegal character for the beginning: ") + ch);
-      }
-    } else {
-      throw std::runtime_error("There is no any thing in the file!");
+    switch (auto ch = peek()) {
+      case '[': return array_();
+      case '{': return object_();
+      case EOF: throw std::runtime_error("There is no any thing in the file!");
+      default: throw std::runtime_error(std::string("Illegal character for the beginning: ") + ch);
     }
   }
 
@@ -326,6 +322,5 @@ private:
 };
 
 dom::dom(const char *file) {
-  std::ifstream stream(file);
-  *static_cast<value *>(this) = parser(stream, pool_).parse();
+  *static_cast<value *>(this) = parser(file, pool_).parse();
 }
