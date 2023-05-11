@@ -16,10 +16,10 @@ enum class primitive_topology : std::uint8_t;
 
 namespace plaid {
 
-/// 图形管道实现类，对用户不可见
-class graphics_pipeline_impl;
+/// 图形管道缓存
+class graphics_pipeline_cache;
 
-/// 图形管道指针的包装，可移动不可复制，所有图形管道的创建在内部管理
+/// 图形管道缓存的包装，可移动不可复制，所有图形管道缓存的创建在内部管理
 class graphics_pipeline {
 public:
 
@@ -27,7 +27,9 @@ public:
   struct create_info;
 
   /// 创建一个空的管道指针
-  graphics_pipeline() : m_pointer(nullptr) {}
+  graphics_pipeline() : cache_(nullptr) {}
+
+  graphics_pipeline(graphics_pipeline_cache &cache);
 
   /// 根据参数创建管道
   /// @param info 图形管道参数
@@ -41,15 +43,18 @@ public:
 
   graphics_pipeline &operator=(graphics_pipeline &&) noexcept;
 
-  /// 转换为原生指针
-  [[nodiscard]] inline operator graphics_pipeline_impl *() noexcept { return m_pointer; }
+  /// 转换为管道缓存
+  [[nodiscard]] inline operator
+  graphics_pipeline_cache &() noexcept {
+    return *cache_;
+  }
 
   /// 获取顶点装配状态
   [[nodiscard]] const primitive_topology &vertex_assembly() noexcept;
 
 private:
 
-  graphics_pipeline_impl *m_pointer;
+  graphics_pipeline_cache *cache_;
 };
 
 /// 指定管道从顶点缓冲区读入新数据的频率
@@ -121,9 +126,9 @@ struct graphics_pipeline::create_info {
   /// 顶点输入缓冲区规格
   struct vertex_input_state {
     /// 指明当前顶点输入的绑定点个数
-    std::uint16_t bindings_count;
+    std::uint8_t bindings_count;
     /// 指明当前顶点输入的属性个数
-    std::uint16_t attributes_count;
+    std::uint8_t attributes_count;
     /// 绑定点描述数组
     const vertex_input_binding_description *bindings;
     /// 属性描述数组
@@ -151,8 +156,8 @@ struct graphics_pipeline::create_info {
 
   /// 视口状态
   struct viewport_state {
-    std::uint16_t viewports_count;
-    std::uint16_t scissors_count;
+    std::uint8_t viewports_count;
+    std::uint8_t scissors_count;
     const viewport *viewports;
     const rect2d *scissors;
   };

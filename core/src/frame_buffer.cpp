@@ -5,7 +5,7 @@
 using namespace plaid;
 
 frame_buffer::frame_buffer(
-    std::uint16_t attachments_count,
+    std::uint8_t attachments_count,
     const attachment attachments[],
     std::uint32_t width, std::uint32_t height
 ) {
@@ -15,10 +15,10 @@ frame_buffer::frame_buffer(
     std::copy_n(attachments, attachments_count, copied_arr);
   }
 
-  m_attachments_count = attachments_count;
-  m_attachments = copied_arr;
-  m_width = width;
-  m_height = height;
+  attachments_count_ = attachments_count;
+  addresses_ = copied_arr;
+  width_ = width;
+  height_ = height;
 }
 
 frame_buffer::frame_buffer(const frame_buffer &copy) {
@@ -26,25 +26,31 @@ frame_buffer::frame_buffer(const frame_buffer &copy) {
 }
 
 frame_buffer::frame_buffer(frame_buffer &&mov) noexcept {
-  m_attachments_count = mov.m_attachments_count;
-  m_attachments = mov.m_attachments;
-  m_width = mov.m_width;
-  m_height = mov.m_height;
+  attachments_count_ = mov.attachments_count_;
+  addresses_ = mov.addresses_;
+  width_ = mov.width_;
+  height_ = mov.height_;
 
-  mov.m_attachments_count = 0;
-  mov.m_attachments = nullptr;
+  mov.attachments_count_ = 0;
+  mov.addresses_ = nullptr;
 }
 
 frame_buffer &frame_buffer::operator=(const frame_buffer &copy) {
-  return *new (this) frame_buffer(copy.m_attachments_count, copy.m_attachments, copy.m_width, copy.m_height);
+  if (&copy == this) {
+    return *this;
+  }
+  return *new (this) frame_buffer(copy.attachments_count_, copy.addresses_, copy.width_, copy.height_);
 }
 
 frame_buffer &frame_buffer::operator=(frame_buffer &&mov) noexcept {
+  if (&mov == this) {
+    return *this;
+  }
   return *new (this) frame_buffer(static_cast<frame_buffer &&>(mov));
 }
 
 frame_buffer::~frame_buffer() {
-  if (m_attachments) {
-    delete[] m_attachments;
+  if (addresses_) {
+    delete[] addresses_;
   }
 }

@@ -17,10 +17,10 @@ camera::camera(
   m_gaze = plaid::norm(m_gaze);
 }
 
-plaid::mat4x4 camera::view() {
+plaid::mat4 camera::view() {
   auto s = side();
   auto up = plaid::norm(plaid::cross(s, m_gaze));
-  auto rotate = plaid::mat4x4{{
+  auto rotate = plaid::mat4{{
       {s.x, s.y, s.z, 0},
       {-up.x, -up.y, -up.z, 0},
       {m_gaze.x, m_gaze.y, m_gaze.z, 0},
@@ -30,22 +30,22 @@ plaid::mat4x4 camera::view() {
   return rotate * plaid::translate(-pos);
 }
 
-plaid::mat4x4 camera::projection() {
+plaid::mat4 camera::projection() {
   auto h = m_near * std::tan(m_fovy / 2) * 2;
   auto w = h * m_ratio;
-  plaid::mat4x4 frustum{{
+  plaid::mat4 frustum{{
       {1, 0, 0, 0},
       {0, 1, 0, 0},
       {0, 0, m_near + m_far, -(m_near * m_far)},
       {0, 0, 1, 0},
   }};
-  auto normalize = plaid::mat4x4{{
+  auto normalize = plaid::mat4{{
                        {2 / w, 0, 0, 0},
                        {0, 2 / h, 0, 0},
                        {0, 0, 1 / (m_far - m_near), 0},
                        {0, 0, 0, 1},
                    }} *
-                   plaid::mat4x4{{
+                   plaid::mat4{{
                        {1, 0, 0, 0},
                        {0, 1, 0, 0},
                        {0, 0, 1, -m_near},
@@ -56,7 +56,7 @@ plaid::mat4x4 camera::projection() {
 
 void camera::move_hor(float rad) {
   auto sinr = std::sin(rad), cosr = std::cos(rad);
-  plaid::mat4x4 rotate{{
+  plaid::mat4 rotate{{
       {cosr, 0, sinr, 0},
       {0, 1, 0, 0},
       {-sinr, 0, cosr, 0},
@@ -72,14 +72,14 @@ void camera::move_hor(float rad) {
 void camera::move_vet(float rad) {
   auto s = side();
   auto up = plaid::norm(plaid::cross(s, m_gaze));
-  plaid::mat4x4 place{{
+  plaid::mat4 place{{
       {s.x, s.y, s.z, 0},
       {-up.x, -up.y, -up.z, 0},
       {m_gaze.x, m_gaze.y, m_gaze.z, 0},
       {0, 0, 0, 1},
   }};
   auto sinr = std::sin(rad), cosr = std::cos(rad);
-  plaid::mat4x4 rotate{{
+  plaid::mat4 rotate{{
       {1, 0, 0, 0},
       {0, cosr, -sinr, 0},
       {0, sinr, cosr, 0},

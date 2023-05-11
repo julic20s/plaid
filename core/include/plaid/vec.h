@@ -4,101 +4,320 @@
 
 #include <cmath>
 
-#include <type_traits>
-
-// 二维向量
 namespace plaid {
 
-struct vec2 {
+template <std::size_t N>
+concept vec_dimen = 1 <= N && N <= 4;
 
-  [[nodiscard]] constexpr float &
-  operator[](std::uint8_t i) noexcept { return *(&x + i); }
+template <class Tp, std::size_t N>
+requires vec_dimen<N>
+struct vec_storage;
 
-  [[nodiscard]] constexpr const float &
-  operator[](std::uint8_t i) const noexcept {
-    return *(&x + i);
-  }
-
-  float x, y;
+template <class Tp>
+struct vec_storage<Tp, 1> {
+  Tp x;
 };
 
-[[nodiscard]] constexpr vec2 operator+(vec2 a, vec2 b) noexcept {
-  return {a.x + b.x, a.y + b.y};
+template <class Tp>
+struct vec_storage<Tp, 2> {
+  Tp x, y;
+};
+
+template <class Tp>
+struct vec_storage<Tp, 3> {
+  Tp x, y, z;
+};
+
+template <class Tp>
+struct vec_storage<Tp, 4> {
+  Tp x, y, z, w;
+};
+
+template <class Ty, std::size_t N>
+requires vec_dimen<N>
+struct vec : vec_storage<Ty, N> {
+  using vec_type = vec<Ty, N>;
+  using value_type = Ty;
+  using size_type = std::size_t;
+  using reference = value_type &;
+  using const_reference = const value_type &;
+  using pointer = value_type *;
+  using const_pointer = const value_type *;
+  using iterator = pointer;
+  using const_iterator = const_pointer;
+
+  static constexpr size_type dimension = N;
+
+  [[nodiscard]] constexpr iterator
+  begin() noexcept { return &this->x; }
+
+  [[nodiscard]] constexpr iterator
+  end() noexcept { return begin() + dimension; }
+
+  [[nodiscard]] constexpr const_iterator
+  begin() const noexcept { return &this->x; }
+
+  [[nodiscard]] constexpr const_iterator
+  end() const noexcept { return begin() + dimension; }
+
+  [[nodiscard]] constexpr const_iterator
+  cbegin() noexcept { return begin(); }
+
+  [[nodiscard]] constexpr const_iterator
+  cend() noexcept { return end(); }
+
+  [[nodiscard]] constexpr reference
+  operator[](size_type i) noexcept { return (&this->x)[i]; }
+
+  [[nodiscard]] constexpr const_reference
+  operator[](size_type i) const noexcept { return (&this->x)[i]; }
+};
+
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator+(const vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  vec<decltype(a.x + b.x), N> res;
+  for (std::size_t i = 0; i != N; ++i) {
+    res[i] = a[i] + b[i];
+  }
+  return res;
 }
 
-[[nodiscard]] constexpr vec2 operator-(vec2 a, vec2 b) noexcept {
-  return {a.x - b.x, a.y - b.y};
+template <class LTp, class RTp, std::size_t N>
+constexpr decltype(auto)
+operator+=(vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  for (std::size_t i = 0; i != N; ++i) {
+    a[i] += b[i];
+  }
+  return a;
 }
 
-[[nodiscard]] constexpr vec2 operator*(vec2 a, vec2 b) noexcept {
-  return {a.x * b.x, a.y * b.y};
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator-(const vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  vec<decltype(a.x - b.x), N> res;
+  for (std::size_t i = 0; i != N; ++i) {
+    res[i] = a[i] - b[i];
+  }
+  return res;
 }
 
-[[nodiscard]] constexpr vec2 operator/(vec2 a, vec2 b) noexcept {
-  return {a.x / b.x, a.y / b.y};
+template <class LTp, class RTp, std::size_t N>
+constexpr decltype(auto)
+operator-=(vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  for (std::size_t i = 0; i != N; ++i) {
+    a[i] -= b[i];
+  }
+  return a;
 }
 
-[[nodiscard]] constexpr vec2 operator*(vec2 a, float b) noexcept {
-  return {a.x * b, a.y * b};
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator*(const vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  vec<decltype(a.x * b.x), N> res;
+  for (std::size_t i = 0; i != N; ++i) {
+    res[i] = a[i] * b[i];
+  }
+  return res;
 }
 
-[[nodiscard]] constexpr vec2 operator/(vec2 a, float b) noexcept {
-  return {a.x / b, a.y / b};
+template <class LTp, class RTp, std::size_t N>
+constexpr decltype(auto)
+operator*=(vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  for (std::size_t i = 0; i != N; ++i) {
+    a[i] *= b[i];
+  }
+  return a;
 }
 
-[[nodiscard]] constexpr float cross(vec2 a, vec2 b) noexcept {
-  return a.x * b.y - a.y * b.x;
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator*(const vec<LTp, N> &a, const RTp &b) noexcept {
+  vec<decltype(a.x * b), N> res;
+  for (std::size_t i = 0; i != N; ++i) {
+    res[i] = a[i] * b;
+  }
+  return res;
 }
 
-[[nodiscard]] constexpr float dot(vec2 a, vec2 b) noexcept {
-  return a.x * b.x + a.y * b.y;
+template <class LTp, class RTp, std::size_t N>
+constexpr decltype(auto)
+operator*=(vec<LTp, N> &a, const RTp &b) noexcept {
+  for (std::size_t i = 0; i != N; ++i) {
+    a[i] *= b;
+  }
+  return a;
 }
 
-[[nodiscard]] inline vec2 pow(vec2 a, float n) noexcept {
-  return {std::pow(a.x, n), std::pow(a.y, n)};
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator*(const LTp &a, const vec<RTp, N> &b) noexcept {
+  return b * a;
+}
+
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator/(const vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  vec<decltype(a.x / b.x), N> res;
+  for (std::size_t i = 0; i != N; ++i) {
+    res[i] = a[i] / b[i];
+  }
+  return res;
+}
+
+template <class LTp, class RTp, std::size_t N>
+constexpr decltype(auto)
+operator/=(vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  for (std::size_t i = 0; i != N; ++i) {
+    a[i] /= b[i];
+  }
+  return a;
+}
+
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator/(const vec<LTp, N> &a, const RTp &b) noexcept {
+  vec<decltype(a.x / b), N> res;
+  for (std::size_t i = 0; i != N; ++i) {
+    res[i] = a[i] / b;
+  }
+  return res;
+}
+
+template <class LTp, class RTp, std::size_t N>
+constexpr decltype(auto)
+operator/=(vec<LTp, N> &a, const RTp &b) noexcept {
+  for (std::size_t i = 0; i != N; ++i) {
+    a[i] /= b;
+  }
+  return a;
+}
+
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator%(const vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  vec<decltype(a.x % b.x), N> res;
+  for (std::size_t i = 0; i != N; ++i) {
+    res[i] = a[i] % b[i];
+  }
+  return res;
+}
+
+template <class LTp, class RTp, std::size_t N>
+constexpr decltype(auto)
+operator%=(vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  for (std::size_t i = 0; i != N; ++i) {
+    a[i] %= b[i];
+  }
+  return a;
+}
+
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator&(const vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  vec<decltype(a.x & b.x), N> res;
+  for (std::size_t i = 0; i != N; ++i) {
+    res[i] = a[i] & b[i];
+  }
+  return res;
+}
+
+template <class LTp, class RTp, std::size_t N>
+constexpr decltype(auto)
+operator&=(vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  for (std::size_t i = 0; i != N; ++i) {
+    a[i] &= b[i];
+  }
+  return a;
+}
+
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator|(const vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  vec<decltype(a.x | b.x), N> res;
+  for (std::size_t i = 0; i != N; ++i) {
+    res[i] = a[i] | b[i];
+  }
+  return res;
+}
+
+template <class LTp, class RTp, std::size_t N>
+constexpr decltype(auto)
+operator|=(vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  for (std::size_t i = 0; i != N; ++i) {
+    a[i] |= b[i];
+  }
+  return a;
+}
+
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator^(const vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  vec<decltype(a.x ^ b.x), N> res;
+  for (std::size_t i = 0; i != N; ++i) {
+    res[i] = a[i] ^ b[i];
+  }
+  return res;
+}
+
+template <class LTp, class RTp, std::size_t N>
+constexpr decltype(auto)
+operator^=(vec<LTp, N> &a, const vec<RTp, N> &b) noexcept {
+  for (std::size_t i = 0; i != N; ++i) {
+    a[i] ^= b[i];
+  }
+  return a;
+}
+
+template <class Tp, std::size_t N>
+[[nodiscard]] constexpr auto dot(const vec<Tp, N> &a, const vec<Tp, N> &b) noexcept {
+  decltype(a.x * a.x) res = 0;
+  for (auto i = 0; i != N; ++i) {
+    res += a[i] * b[i];
+  }
+  return res;
+}
+
+template <class Tp, std::size_t N>
+[[nodiscard]] vec<Tp, N> pow(const vec<Tp, N> &a, float n) noexcept {
+  vec<Tp, N> res;
+  for (auto i = 0; i != N; ++i) {
+    res[i] = std::pow(a[i], n);
+  }
+}
+
+template <class Tp, std::size_t N>
+[[nodiscard]] auto abs(const vec<Tp, N> &v) noexcept {
+  return std::sqrt(dot(v, v));
+}
+
+template <class Tp, std::size_t N>
+[[nodiscard]] auto norm(const vec<Tp, N> &v) noexcept {
+  return v / abs(v);
+}
+
+template <class Tp, std::size_t N>
+[[nodiscard]] constexpr auto operator-(const vec<Tp, N> &v) {
+  return v * -1;
 }
 
 } // namespace plaid
 
-// 三维向量
 namespace plaid {
 
-struct vec3 {
+using vec2 = vec<float, 2>;
 
-  [[nodiscard]] constexpr float &
-  operator[](std::uint8_t i) noexcept { return *(&x + i); }
-
-  [[nodiscard]] constexpr const float &
-  operator[](std::uint8_t i) const noexcept { return *(&x + i); }
-
-  float x, y, z;
-};
-
-[[nodiscard]] constexpr vec3 operator+(vec3 a, vec3 b) noexcept {
-  return {a.x + b.x, a.y + b.y, a.z + b.z};
+[[nodiscard]] constexpr float cross(const vec2 &a, const vec2 &b) noexcept {
+  return a.x * b.y - a.y * b.x;
 }
 
-[[nodiscard]] constexpr vec3 operator-(vec3 a, vec3 b) noexcept {
-  return {a.x - b.x, a.y - b.y, a.z - b.z};
-}
+} // namespace plaid
 
-[[nodiscard]] constexpr vec3 operator*(vec3 a, vec3 b) noexcept {
-  return {a.x * b.x, a.y * b.y, a.z * b.z};
-}
+namespace plaid {
 
-[[nodiscard]] constexpr vec3 operator/(vec3 a, vec3 b) noexcept {
-  return {a.x / b.x, a.y / b.y, a.z / b.z};
-}
+using vec3 = vec<float, 3>;
 
-[[nodiscard]] constexpr vec3 operator*(vec3 a, float b) noexcept {
-  return {a.x * b, a.y * b, a.z * b};
-}
-
-[[nodiscard]] constexpr vec3 operator/(vec3 a, float b) noexcept {
-  return {a.x / b, a.y / b, a.z / b};
-}
-
-[[nodiscard]] constexpr vec3 cross(vec3 a, vec3 b) noexcept {
+[[nodiscard]] constexpr vec3 cross(const vec3 &a, const vec3 &b) noexcept {
   return {
       a.y * b.z - a.z * b.y,
       a.z * b.x - a.x * b.z,
@@ -106,91 +325,11 @@ struct vec3 {
   };
 }
 
-[[nodiscard]] constexpr float dot(vec3 a, vec3 b) noexcept {
-  return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-[[nodiscard]] inline vec3 pow(vec3 a, float n) noexcept {
-  return {std::pow(a.x, n), std::pow(a.y, n), std::pow(a.z, n)};
-}
-
 } // namespace plaid
 
-// 四维向量
 namespace plaid {
 
-struct vec4 {
-  [[nodiscard]] constexpr float &
-  operator[](std::uint8_t i) noexcept { return *(&x + i); }
-
-  [[nodiscard]] constexpr const float &
-  operator[](std::uint8_t i) const noexcept { return *(&x + i); }
-
-  float x, y, z, w;
-};
-
-[[nodiscard]] constexpr vec4 operator+(vec4 a, vec4 b) noexcept {
-  return {a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w};
-}
-
-[[nodiscard]] constexpr vec4 operator-(vec4 a, vec4 b) noexcept {
-  return {a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w};
-}
-
-[[nodiscard]] constexpr vec4 operator*(vec4 a, vec4 b) noexcept {
-  return {a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w};
-}
-
-[[nodiscard]] constexpr vec4 operator/(vec4 a, vec4 b) noexcept {
-  return {a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w};
-}
-
-[[nodiscard]] constexpr vec4 operator*(vec4 a, float b) noexcept {
-  return {a.x * b, a.y * b, a.z * b, a.w * b};
-}
-
-[[nodiscard]] constexpr vec4 operator/(vec4 a, float b) noexcept {
-  return {a.x / b, a.y / b, a.z / b, a.w / b};
-}
-
-[[nodiscard]] constexpr float dot(vec4 a, vec4 b) noexcept {
-  return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
-}
-
-[[nodiscard]] inline vec4 pow(vec4 a, float n) noexcept {
-  return {std::pow(a.x, n), std::pow(a.y, n), std::pow(a.z, n), std::pow(a.w, n)};
-}
-
-} // namespace plaid
-
-// 向量类工具实现
-namespace plaid {
-
-template <class Ty>
-concept vec = std::is_same_v<std::remove_cv_t<Ty>, vec2> ||
-              std::is_same_v<std::remove_cv_t<Ty>, vec3> ||
-              std::is_same_v<std::remove_cv_t<Ty>, vec4>;
-
-template <vec Ty>
-[[nodiscard]] inline float abs(Ty v) noexcept {
-  return std::sqrt(dot(v, v));
-}
-
-template <vec Ty>
-[[nodiscard]] constexpr auto
-operator*(float a, Ty b) noexcept {
-  return b * a;
-}
-
-template <vec Ty>
-[[nodiscard]] constexpr auto norm(Ty v) {
-  return v / abs(v);
-}
-
-template <vec Ty>
-[[nodiscard]] constexpr auto operator-(Ty v) {
-  return v * -1;
-}
+using vec4 = vec<float, 4>;
 
 } // namespace plaid
 

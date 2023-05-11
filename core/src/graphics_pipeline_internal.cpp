@@ -8,17 +8,17 @@
 using namespace plaid;
 
 graphics_pipeline::graphics_pipeline(const graphics_pipeline::create_info &info) {
-  m_pointer = new graphics_pipeline_impl(info);
+  cache_ = new graphics_pipeline_cache(info);
 }
 
 graphics_pipeline::graphics_pipeline(graphics_pipeline &&mov) noexcept {
-  m_pointer = mov.m_pointer;
-  mov.m_pointer = nullptr;
+  cache_ = mov.cache_;
+  mov.cache_ = nullptr;
 }
 
 graphics_pipeline::~graphics_pipeline() {
-  if (m_pointer) {
-    delete m_pointer;
+  if (cache_) {
+    delete cache_;
   }
 }
 
@@ -27,7 +27,7 @@ graphics_pipeline &graphics_pipeline::operator=(graphics_pipeline &&mov) noexcep
 }
 
 const primitive_topology &graphics_pipeline::vertex_assembly() noexcept {
-  return m_pointer->vertex_assembly;
+  return cache_->vertex_assembly;
 }
 
 static std::byte *aligned_malloc(std::uint32_t size, std::uint32_t al) {
@@ -46,7 +46,7 @@ static void aligned_free(void *ptr) {
   std::free(*(reinterpret_cast<void **>(ptr) - 1));
 }
 
-graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_info &info) {
+graphics_pipeline_cache::graphics_pipeline_cache(const graphics_pipeline::create_info &info) {
   vertex_assembly = info.input_assembly_state.topology;
   rasterization_state = info.rasterization_state;
 
@@ -224,7 +224,7 @@ graphics_pipeline_impl::graphics_pipeline_impl(const graphics_pipeline::create_i
   }
 }
 
-graphics_pipeline_impl::~graphics_pipeline_impl() {
+graphics_pipeline_cache::~graphics_pipeline_cache() {
   aligned_free(m_allocated_memory);
 }
 
@@ -246,40 +246,40 @@ static void clear_by_format(
   }
 }
 
-void graphics_pipeline_impl::clear_color_attachment(const render_pass::state &state, attachment_reference ref) {
+void graphics_pipeline_cache::clear_color_attachment(const render_pass::state &state, attachment_reference ref) {
   // 根据附件类型选定清除值
   auto src_format = format::undefined;
   const std::byte *src = nullptr;
   if (is_float_format(ref.format)) {
     src_format = format::RGBA32f;
-    src = reinterpret_cast<const std::byte *>(&state.m_clear_values[ref.id].color.f);
+    src = reinterpret_cast<const std::byte *>(&state.clear_values_[ref.id].color.f);
   } else if (is_unsigned_integer_format(ref.format)) {
     src_format = format::RGBA32u;
-    src = reinterpret_cast<const std::byte *>(&state.m_clear_values[ref.id].color.u);
+    src = reinterpret_cast<const std::byte *>(&state.clear_values_[ref.id].color.u);
   }
 
   auto dst_stride = format_size(ref.format);
-  auto dst = state.m_frame_buffer->attachement(ref.id);
-  auto dst_ed = dst + state.m_frame_buffer->width() * state.m_frame_buffer->height() * dst_stride;
+  auto dst = (*state.frame_buffer_)[ref.id];
+  auto dst_ed = dst + state.frame_buffer_->width() * state.frame_buffer_->height() * dst_stride;
   clear_by_format(src_format, ref.format, dst, dst_ed, src, dst_stride);
 }
 
-void graphics_pipeline_impl::clear_stencil_attachment(const render_pass::state &state, attachment_reference ref) {
+void graphics_pipeline_cache::clear_stencil_attachment(const render_pass::state &state, attachment_reference ref) {
   // 根据附件类型选定清除值
   auto src_format = format::undefined;
   const std::byte *src = nullptr;
   if (is_float_format(ref.format)) {
     src_format = format::R32f;
-    src = reinterpret_cast<const std::byte *>(&state.m_clear_values[ref.id].depth_stencil.depth);
+    src = reinterpret_cast<const std::byte *>(&state.clear_values_[ref.id].depth_stencil.depth);
   }
 
-  auto dst = state.m_frame_buffer->attachement(ref.id);
+  auto dst = (*state.frame_buffer_)[ref.id];
   auto dst_stride = format_size(ref.format);
-  auto dst_ed = dst + state.m_frame_buffer->width() * state.m_frame_buffer->height() * dst_stride;
+  auto dst_ed = dst + state.frame_buffer_->width() * state.frame_buffer_->height() * dst_stride;
   clear_by_format(src_format, ref.format, dst, dst_ed, src, dst_stride);
 }
 
-void graphics_pipeline_impl::draw(
+void graphics_pipeline_cache::draw(
     const render_pass::state &state,
     std::uint32_t vertex_count, std::uint32_t instance_count,
     std::uint32_t first_vertex, std::uint32_t first_instance
@@ -291,7 +291,7 @@ void graphics_pipeline_impl::draw(
   );
 }
 
-void graphics_pipeline_impl::draw_indexed(
+void graphics_pipeline_cache::draw_indexed(
     const render_pass::state &state,
     std::uint32_t indices_count, std::uint32_t instances_count,
     std::uint32_t first_index, std::int32_t vertex_offset,
@@ -305,24 +305,24 @@ void graphics_pipeline_impl::draw_indexed(
 }
 
 template <bool Indexed>
-void graphics_pipeline_impl::draw_internal(
+void graphics_pipeline_cache::draw_internal(
     const render_pass::state &state,
     std::uint32_t first, std::uint32_t last,
     std::uint32_t first_inst, std::uint32_t last_inst,
     std::int32_t vert_offset
 ) {
-  auto width = state.m_frame_buffer->width();
-  auto height = state.m_frame_buffer->height();
+  auto width = state.frame_buffer_->width();
+  auto height = state.frame_buffer_->height();
   [[unlikely]] if (!width || !height) {
     return;
   }
 
   {
     // 对所有颜色附件应用清除值
-    auto it = state.m_current_subpass->color_attachments;
-    auto ed = it + state.m_current_subpass->color_attachments_count;
+    auto it = state.current_subpass_->color_attachments;
+    auto ed = it + state.current_subpass_->color_attachments_count;
     for (; it != ed; ++it) {
-      auto &desc = state.m_attachment_descriptions[it->id];
+      auto &desc = state.attachment_descriptions_[it->id];
       if (desc.load_op == attachment_load_op::clear) {
         clear_color_attachment(state, *it);
       }
@@ -331,8 +331,8 @@ void graphics_pipeline_impl::draw_internal(
 
   {
     // 对深度/模板附件应用清除值
-    auto ref = *state.m_current_subpass->depth_stencil_attachment;
-    auto &desc = state.m_attachment_descriptions[ref.id];
+    auto ref = *state.current_subpass_->depth_stencil_attachment;
+    auto &desc = state.attachment_descriptions_[ref.id];
     if (desc.stencil_load_op == attachment_load_op::clear) {
       clear_stencil_attachment(state, ref);
     }
@@ -406,8 +406,8 @@ static int clip_triangle(const vec4 (&src)[3], vec4 dst[]) {
 }
 
 template <bool Indexed>
-std::uint32_t graphics_pipeline_impl::actual_vertex(
-  std::uint32_t position, std::int32_t vert_offset
+std::uint32_t graphics_pipeline_cache::actual_vertex(
+    std::uint32_t position, std::int32_t vert_offset
 ) {
   if constexpr (Indexed) {
     return m_index_buffer[position] + vert_offset;
@@ -417,7 +417,7 @@ std::uint32_t graphics_pipeline_impl::actual_vertex(
 }
 
 template <bool Indexed>
-void graphics_pipeline_impl::draw_triangle_list(
+void graphics_pipeline_cache::draw_triangle_list(
     const render_pass::state &state,
     std::uint32_t first, std::uint32_t last,
     std::uint32_t first_inst, std::uint32_t last_inst,
@@ -427,7 +427,7 @@ void graphics_pipeline_impl::draw_triangle_list(
     return;
   }
 
-  auto &vertex_buffer = state.m_vertex_buffer;
+  auto &vertex_buffer = state.vertex_buffer_;
 
   vec4 clip_coords[3];
   // 采用 IMR 模式，每当完成相邻三个顶点的顶点着色器之后马上进行图元的光栅化
@@ -447,15 +447,11 @@ void graphics_pipeline_impl::draw_triangle_list(
       auto coord_it = clip_coords;
       for (auto i : indices) {
         obtain_next_vertex_attribute(
-          vertex_buffer,
-          actual_vertex<Indexed>(i, vert_offset)
+            vertex_buffer,
+            actual_vertex<Indexed>(i, vert_offset)
         );
 
-        invoke_vertex_shader(
-            state.m_descriptor_set,
-            *it,
-            *coord_it
-        );
+        invoke_vertex_shader(state.descriptor_set_, *it, *coord_it);
         ++it, ++coord_it;
       }
 
@@ -476,7 +472,7 @@ void graphics_pipeline_impl::draw_triangle_list(
 }
 
 template <bool Indexed>
-void graphics_pipeline_impl::draw_triangle_strip(
+void graphics_pipeline_cache::draw_triangle_strip(
     const render_pass::state &state,
     std::uint32_t first, std::uint32_t last,
     std::uint32_t first_inst, std::uint32_t last_inst,
@@ -486,7 +482,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
     return;
   }
 
-  auto &vertex_buffer = state.m_vertex_buffer;
+  auto &vertex_buffer = state.vertex_buffer_;
 
   vec4 clip_coords[3];
   // 采用 IMR 模式，每当完成相邻三个顶点的顶点着色器之后马上进行图元的光栅化
@@ -501,7 +497,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
     for (auto i : indices) {
       // 顶点编号刚好对应数据位置，而下面的 while 循环则不能如此
       obtain_next_vertex_attribute(vertex_buffer, actual_vertex<Indexed>(i, vert_offset));
-      invoke_vertex_shader(state.m_descriptor_set, m_vertex_shader_output[i], clip_coords[i]);
+      invoke_vertex_shader(state.descriptor_set_, m_vertex_shader_output[i], clip_coords[i]);
     }
 
     vec4 clipped[6];
@@ -520,11 +516,11 @@ void graphics_pipeline_impl::draw_triangle_strip(
       indices[ping_pong] += 3;
       if (indices[ping_pong] == last) break;
       obtain_next_vertex_attribute(
-        vertex_buffer,
-        actual_vertex<Indexed>(indices[ping_pong], vert_offset)
+          vertex_buffer,
+          actual_vertex<Indexed>(indices[ping_pong], vert_offset)
       );
       invoke_vertex_shader(
-          state.m_descriptor_set,
+          state.descriptor_set_,
           m_vertex_shader_output[ping_pong],
           clip_coords[ping_pong]
       );
@@ -533,7 +529,7 @@ void graphics_pipeline_impl::draw_triangle_strip(
   }
 }
 
-void graphics_pipeline_impl::obtain_next_vertex_attribute(
+void graphics_pipeline_cache::obtain_next_vertex_attribute(
     const const_memory_array<1 << 8> &vertex_buffer, std::uint32_t vert_id
 ) {
   auto it = m_vertex_input_per_vertex;
@@ -544,7 +540,7 @@ void graphics_pipeline_impl::obtain_next_vertex_attribute(
   }
 }
 
-void graphics_pipeline_impl::obtain_next_instance_attributes(
+void graphics_pipeline_cache::obtain_next_instance_attributes(
     const const_memory_array<1 << 8> &vertex_buffer, std::uint32_t inst_id
 ) {
   auto it = m_vertex_input_per_instance;
@@ -555,7 +551,7 @@ void graphics_pipeline_impl::obtain_next_instance_attributes(
   }
 }
 
-void graphics_pipeline_impl::invoke_vertex_shader(
+void graphics_pipeline_cache::invoke_vertex_shader(
     const const_memory_array<1 << 8> &descriptor_set,
     const memory_array<1 << 8> &output,
     vec4 &clip_coord
@@ -565,13 +561,13 @@ void graphics_pipeline_impl::invoke_vertex_shader(
   m_vertex_shader(descriptor_set, m_vertex_shader_input, output, &mutable_builtin);
 }
 
-void graphics_pipeline_impl::rasterize_triangle(
+void graphics_pipeline_cache::rasterize_triangle(
     const render_pass::state &state,
     const vec4 *const (&clip_coord)[3]
 ) {
-  auto frame = state.m_frame_buffer;
-  auto width = frame->width();
-  auto height = frame->height();
+  auto &frame = *state.frame_buffer_;
+  auto width = frame.width();
+  auto height = frame.height();
 
   vec2 view[3];
   float z[3];
@@ -628,9 +624,8 @@ void graphics_pipeline_impl::rasterize_triangle(
   auto um = cross(ac, pa);
   auto vm = cross(pa, ab);
 
-  auto depth_stencil_attachment = frame->attachement(
-      state.m_current_subpass->depth_stencil_attachment->id
-  );
+  auto depth_stencil_index = state.current_subpass_->depth_stencil_attachment->id;
+  auto depth_stencil_attachment = frame[depth_stencil_index];
 
   for (auto y = t; y <= b; ++y) {
     auto um_first = um, vm_first = vm;
@@ -660,7 +655,7 @@ void graphics_pipeline_impl::rasterize_triangle(
   }
 }
 
-void graphics_pipeline_impl::invoke_fragment_shader(
+void graphics_pipeline_cache::invoke_fragment_shader(
     const render_pass::state &state,
     vec3 fragcoord,
     std::uint32_t index, const float (&weight)[3]
@@ -679,17 +674,17 @@ void graphics_pipeline_impl::invoke_fragment_shader(
   }
   auto mutable_builtin = reinterpret_cast<memory>(&fragcoord);
   m_fragment_shader(
-      state.m_descriptor_set, const_cast<const_memory(&)[256]>(m_fragment_shader_input),
+      state.descriptor_set_, const_cast<const_memory(&)[256]>(m_fragment_shader_input),
       m_fragment_shader_output, &mutable_builtin
   );
 
-  auto frame = state.m_frame_buffer;
+  auto &frame = *state.frame_buffer_;
   auto it = m_fragment_output, ed = it + m_counts.fragment_output;
   for (; it != ed; ++it) {
     if (!it->attachment_stride) {
       continue;
     }
-    auto ptr = frame->attachement(it->attachment_id) + index * it->attachment_stride;
+    auto ptr = frame[it->attachment_id] + index * it->attachment_stride;
     it->attachment_transition(m_fragment_shader_output[it->location], ptr);
   }
 }

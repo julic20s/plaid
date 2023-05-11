@@ -36,25 +36,25 @@ render_pass::render_pass(const create_info &info) {
     }
   }
 
-  m_subpasses_count = info.subpasses_count;
-  m_attachments_count = info.attachments_count;
-  m_subpasses = copied_subpasses;
-  m_attachments = copied_attachments;
+  subpasses_count_ = info.subpasses_count;
+  attachments_count_ = info.attachments_count;
+  subpasses_ = copied_subpasses;
+  attachments_ = copied_attachments;
 }
 
 render_pass::render_pass(render_pass &&mov) noexcept {
-  m_attachments_count = mov.m_attachments_count;
-  m_subpasses_count = mov.m_subpasses_count;
-  m_attachments = mov.m_attachments;
-  m_subpasses = mov.m_subpasses;
-  mov.m_attachments_count = 0;
-  mov.m_subpasses_count = 0;
-  mov.m_attachments = nullptr;
-  mov.m_subpasses = nullptr;
+  attachments_count_ = mov.attachments_count_;
+  subpasses_count_ = mov.subpasses_count_;
+  attachments_ = mov.attachments_;
+  subpasses_ = mov.subpasses_;
+  mov.attachments_count_ = 0;
+  mov.subpasses_count_ = 0;
+  mov.attachments_ = nullptr;
+  mov.subpasses_ = nullptr;
 }
 
 render_pass::~render_pass() {
-  auto it = m_subpasses, ed = it + m_subpasses_count;
+  auto it = subpasses_, ed = it + subpasses_count_;
   for (; it != ed; ++it) {
     if (it->input_attachments_count) {
       delete [] it->input_attachments;
@@ -66,11 +66,11 @@ render_pass::~render_pass() {
       delete it->depth_stencil_attachment;
     }
   }
-  if (m_subpasses) {
-    delete [] m_subpasses;
+  if (subpasses_) {
+    delete [] subpasses_;
   }
-  if (m_attachments) {
-    delete [] m_attachments;
+  if (attachments_) {
+    delete [] attachments_;
   }
 }
 
@@ -79,46 +79,48 @@ render_pass &render_pass::operator=(render_pass &&mov) noexcept {
 }
 
 render_pass::state::state(const begin_info &begin) {
-  m_attachment_descriptions = begin.render_pass.m_attachments;
-  m_current_subpass = m_first_subpass = begin.render_pass.m_subpasses;
-  m_last_subpass = m_first_subpass + begin.render_pass.m_subpasses_count;
-  m_frame_buffer = &begin.frame_buffer;
-  m_clear_values_count = begin.clear_values_count;
-  m_clear_values = begin.clear_values;
+  attachment_descriptions_ = begin.render_pass.attachments_;
+  current_subpass_ = first_subpass_ = begin.render_pass.subpasses_;
+  last_subpass_ = first_subpass_ + begin.render_pass.subpasses_count_;
+  frame_buffer_ = &begin.frame_buffer;
+  clear_values_count_ = begin.clear_values_count;
+  clear_values_ = begin.clear_values;
 }
 
 void render_pass::state::next_subpass() {
-  ++m_current_subpass;
-  if (m_current_subpass == m_last_subpass) {
-    m_current_subpass = m_first_subpass;
+  ++current_subpass_;
+  if (current_subpass_ == last_subpass_) {
+    current_subpass_ = first_subpass_;
   }
 }
 
 void render_pass::state::bind_descriptor_set(std::uint8_t binding, const std::byte *buf) {
-  m_descriptor_set[binding] = buf;
+  descriptor_set_[binding] = buf;
 }
 
 void render_pass::state::bind_vertex_buffer(std::uint8_t binding, const std::byte *buf) {
-  m_vertex_buffer[binding] = buf;
+  vertex_buffer_[binding] = buf;
 }
 
 void render_pass::state::draw(
-    graphics_pipeline_impl *pipeline,
+    graphics_pipeline &pipeline,
     std::uint32_t vertex_count, std::uint32_t instance_count,
     std::uint32_t first_vertex, std::uint32_t first_instance
 ) {
-  pipeline->draw(
+  graphics_pipeline_cache &cache = pipeline;
+  cache.draw(
       *this, vertex_count, instance_count, first_vertex, first_instance
   );
 }
 
 void render_pass::state::draw_indexed(
-  graphics_pipeline_impl *pipeline,
+  graphics_pipeline &pipeline,
   std::uint32_t indices_count, std::uint32_t instances_count,
   std::uint32_t first_index, std::int32_t vertex_offset,
   std::uint32_t first_instance
 ) {
-  pipeline->draw_indexed(
+  graphics_pipeline_cache &cache = pipeline;
+  cache.draw_indexed(
     *this, indices_count, instances_count, first_index, vertex_offset, first_instance
   );
 }

@@ -14,12 +14,7 @@
 #include "platform/window.h"
 #include "scene/perspective_camera.h"
 
-constexpr plaid::mat4x4 model{{
-    {0.05, 0, 0, 0},
-    {0, -0.05, 0, 0},
-    {0, 0, 0.05, 0},
-    {0, 0, 0, 1},
-}};
+constexpr plaid::mat4 model = plaid::scale(plaid::vec3{.05f, -.05f, .05f});
 
 plaid::render_pass viewer_render_pass;
 plaid::graphics_pipeline viewer_pipeline;
@@ -28,7 +23,7 @@ std::unique_ptr<float[]> depth_buffer;
 std::uint32_t size;
 
 plaid::viewer::camera viewer_cam({2, 0, -1}, {}, 0.5, 60, std::numbers::pi / 18, 1);
-plaid::mat4x4 mvp;
+plaid::mat4 mvp;
 
 /// 初始化渲染通道
 void initialize_render_pass() {
@@ -70,7 +65,8 @@ void initialize_pipeline() {
           .binding = 0,
           .input_rate = plaid::vertex_input_rate::vertex,
           .stride = sizeof(obj_model::vertex),
-      }};
+      },
+  };
 
   constexpr plaid::vertex_input_attribute_description attrs[]{
       {
@@ -218,7 +214,7 @@ void handle_window_input(window &w) {
   }
   auto tow = plaid::norm(viewer_cam.gaze()) * fwd;
   tow.y = 0;
-  viewer_cam.obrit() = viewer_cam.obrit() + tow + sft * viewer_cam.side() + plaid::vec3{0, 1, 0} * flt;
+  viewer_cam.obrit() += tow + sft * viewer_cam.side() + plaid::vec3{0, 1, 0} * flt;
   if (sft || fwd || flt) {
     update_mvp();
   }
@@ -269,6 +265,8 @@ int main(int argc, const char *argv[]) {
     print_fps();
     window.poll_events();
   }
+
+  window.destroy();
 
   return 0;
 }

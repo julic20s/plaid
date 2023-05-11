@@ -6,7 +6,7 @@ struct vert : plaid::vertex_shader {
 
   binding<0>::uniform<plaid::vec3[]> positions;
   binding<1>::uniform<plaid::vec3[]> normals;
-  binding<2>::uniform<plaid::mat4x4> mvp;
+  binding<2>::uniform<plaid::mat4> mvp;
 
   location<0>::in<std::int32_t> pos_index;
 

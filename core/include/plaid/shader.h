@@ -48,8 +48,8 @@ struct shader_stage_variable_description {
 
 /// 定义一个着色器内所有变量的规格
 struct shader_variables_meta {
-  std::uint16_t inputs_count;
-  std::uint16_t outputs_count;
+  std::uint8_t inputs_count;
+  std::uint8_t outputs_count;
   shader_stage_variable_description *inputs;
   shader_stage_variable_description *outputs;
 };
@@ -86,7 +86,7 @@ public:
   struct binding;
 
   /// 用来生成着色器类的入口函数
-  template <class Ty, void (Ty::*Entry)()>
+  template <class Tp, void (Tp::*Entry)()>
   static void entry(
       const const_memory_array<1 << 8> &uniform,
       const const_memory_array<1 << 8> &input,
@@ -94,8 +94,8 @@ public:
       memory *mutable_builtin
   );
 
-  template <class Ty>
-  [[nodiscard]] inline decltype(auto) get(Ty &ref) noexcept {
+  template <class Tp>
+  [[nodiscard]] inline decltype(auto) get(Tp &ref) noexcept {
     return ref.get(this);
   }
 
@@ -116,20 +116,20 @@ struct fragment_shader : shader {
   vec3 *gl_fragcoord;
 };
 
-template <class Ty, void (Ty::*Entry)()>
+template <class Tp, void (Tp::*Entry)()>
 void shader::entry(
     const const_memory_array<1 << 8> &uniform,
     const const_memory_array<1 << 8> &input,
     const memory_array<1 << 8> &output,
     memory *mutable_builtin
 ) {
-  Ty shader;
+  Tp shader;
   shader.uniform = &uniform;
   shader.input = &input;
   shader.output = &output;
-  if constexpr (std::is_base_of_v<vertex_shader, Ty>) {
+  if constexpr (std::is_base_of_v<vertex_shader, Tp>) {
     shader.gl_position = reinterpret_cast<vec4 *>(mutable_builtin[0]);
-  } else if constexpr (std::is_base_of_v<fragment_shader, Ty>) {
+  } else if constexpr (std::is_base_of_v<fragment_shader, Tp>) {
     shader.gl_fragcoord = reinterpret_cast<vec3 *>(mutable_builtin[0]);
   }
   (shader.*Entry)();
@@ -173,13 +173,13 @@ private:
   shader_stage_variable_description *attributes_description_memory;
 };
 
-template <class Ty, void (Ty::*Entry)(void)>
+template <class Tp, void (Tp::*Entry)(void)>
 class dsl_shader_module::constructor<Entry> {
 private:
   static bool generate_variables_meta(dsl_shader_module &p, auto &&...args) {
     // 不断构造，因为所有的 in/out/uniform 都能接受一个dsl_shader_module & 作为构造参数
     // 所以当不能再构造的时候，arg的数量就是着色器成员的数量
-    constexpr auto constructiable = requires { Ty{{}, args...}; };
+    constexpr auto constructiable = requires { Tp{{}, args...}; };
     if constexpr (constructiable) {
       // 再增加一个参数就不能构造了，说明递归到这一层时参数已经能够填满所有的成员
       if (!generate_variables_meta(p, p, args...)) {
@@ -193,7 +193,7 @@ private:
             .outputs = outputs,
         };
         {
-          Ty shader{{}, args...};
+          Tp shader{{}, args...};
         }
 
         const auto count = p.variables_meta.inputs_count + p.variables_meta.outputs_count;
@@ -227,23 +227,23 @@ private:
 public:
   static void construct(dsl_shader_module &m) {
     generate_variables_meta(m);
-    m.entry = shader::entry<Ty, Entry>;
+    m.entry = shader::entry<Tp, Entry>;
   }
 };
 
 template <std::uint8_t Loc>
 struct shader::location {
-  template <class Ty>
+  template <class Tp>
   class in {
   private:
-    template <class MTy>
+    template <class MTp>
     static inline void interpolation(
         const const_memory_array<3> &src, const float (&weight)[3], std::byte *dst
     ) {
-      constexpr auto n = std::extent_v<Ty>;
+      constexpr auto n = std::extent_v<Tp>;
       // 如果是数组类型就递归进行插值
       if constexpr (n >= 2) {
-        using element_t = std::remove_extent_t<Ty>;
+        using element_t = std::remove_extent_t<Tp>;
         constexpr auto stride = sizeof(element_t);
         const std::byte *arr_src[] = {src[0], src[1], src[2]};
 
@@ -253,9 +253,9 @@ struct shader::location {
           dst += stride;
         }
       } else {
-        using typed_array = const Ty *const[3];
+        using typed_array = const Tp *const[3];
         auto &typed = reinterpret_cast<const typed_array &>(src);
-        *reinterpret_cast<Ty *>(dst) =
+        *reinterpret_cast<Tp *>(dst) =
             *typed[0] * weight[0] +
             *typed[1] * weight[1] +
             *typed[2] * weight[2];
@@ -270,18 +270,18 @@ struct shader::location {
       m.variables_meta.inputs[m.variables_meta.inputs_count++] =
           shader_stage_variable_description{
               .location = Loc,
-              .size = sizeof(Ty),
-              .align = alignof(Ty),
-              .interpolation = interpolation<Ty>,
+              .size = sizeof(Tp),
+              .align = alignof(Tp),
+              .interpolation = interpolation<Tp>,
           };
     }
 
-    [[nodiscard]] static inline const Ty &get(shader *host) noexcept {
-      return *reinterpret_cast<const Ty *const>((*host->input)[Loc]);
+    [[nodiscard]] static inline const Tp &get(shader *host) noexcept {
+      return *reinterpret_cast<const Tp *const>((*host->input)[Loc]);
     }
   };
 
-  template <class Ty>
+  template <class Tp>
   class out {
   private:
     // 匹配不同类型变量的 format
@@ -310,22 +310,22 @@ struct shader::location {
       // 把自身属性填入数组
       m.variables_meta.outputs[m.variables_meta.outputs_count++] =
           shader_stage_variable_description{
-              .format = attribute_format_matcher<Ty>::format,
+              .format = attribute_format_matcher<Tp>::format,
               .location = Loc,
-              .size = sizeof(Ty),
-              .align = alignof(Ty),
+              .size = sizeof(Tp),
+              .align = alignof(Tp),
           };
     }
 
-    [[nodiscard]] static inline Ty &get(shader *host) noexcept {
-      return *reinterpret_cast<Ty *const>((*host->output)[Loc]);
+    [[nodiscard]] static inline Tp &get(shader *host) noexcept {
+      return *reinterpret_cast<Tp *const>((*host->output)[Loc]);
     }
   };
 };
 
 template <std::uint8_t Bd>
 struct shader::binding {
-  template <class Ty>
+  template <class Tp>
   struct uniform {
     uniform() = default;
 
@@ -334,9 +334,9 @@ struct shader::binding {
       // 能够正常构造，特添加这个函数
     }
 
-    [[nodiscard]] inline static const Ty &
+    [[nodiscard]] inline static const Tp &
     get(shader *shader) noexcept {
-      return *reinterpret_cast<const Ty *const>((*shader->uniform)[Bd]);
+      return *reinterpret_cast<const Tp *const>((*shader->uniform)[Bd]);
     }
   };
 };

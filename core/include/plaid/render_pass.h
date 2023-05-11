@@ -9,7 +9,7 @@
 
 namespace plaid {
 class frame_buffer;
-class graphics_pipeline_impl;
+class graphics_pipeline;
 } // namespace plaid
 
 namespace plaid {
@@ -50,9 +50,9 @@ struct attachment_reference {
 /// 描述一个渲染子通道
 struct subpass_description {
   /// 指明输入附件的总数目
-  std::uint16_t input_attachments_count;
+  std::uint8_t input_attachments_count;
   /// 指明颜色附件的总数目
-  std::uint16_t color_attachments_count;
+  std::uint8_t color_attachments_count;
   /// 输入附件数组
   const attachment_reference *input_attachments;
   /// 颜色附件数组
@@ -62,8 +62,8 @@ struct subpass_description {
 };
 
 struct subpass_dependency {
-  std::uint16_t src_subpass;
-  std::uint16_t dst_subpass;
+  std::uint8_t src_subpass;
+  std::uint8_t dst_subpass;
 };
 
 /// 记录一个多通道渲染
@@ -74,10 +74,10 @@ public:
 
   /// 创建一个空的多通道渲染
   render_pass()
-      : m_attachments_count(0),
-        m_subpasses_count(0),
-        m_attachments(nullptr),
-        m_subpasses(nullptr) {}
+      : attachments_count_(0),
+        subpasses_count_(0),
+        attachments_(nullptr),
+        subpasses_(nullptr) {}
 
   /// 根据参数创建多通道渲染
   /// @param info 创建参数
@@ -94,13 +94,13 @@ public:
   /// 获得指定附件的描述
   /// @param index 附件编号
   [[nodiscard]] inline const attachment_description &attachment(std::uint8_t index) const {
-    return m_attachments[index];
+    return attachments_[index];
   }
 
   /// 获得指定子通道的描述
   /// @param index 子通道的编号
   [[nodiscard]] inline const subpass_description &subpass(std::uint8_t index) const {
-    return m_subpasses[index];
+    return subpasses_[index];
   }
 
   /// 记录渲染通道状态
@@ -108,16 +108,16 @@ public:
 
 private:
 
-  std::uint16_t m_attachments_count;
-  std::uint16_t m_subpasses_count;
-  const attachment_description *m_attachments;
-  const subpass_description *m_subpasses;
+  std::uint8_t attachments_count_;
+  std::uint8_t subpasses_count_;
+  const attachment_description *attachments_;
+  const subpass_description *subpasses_;
 };
 
 struct render_pass::create_info {
-  std::uint16_t attachments_count;
-  std::uint16_t subpasses_count;
-  std::uint16_t dependencies_count;
+  std::uint8_t attachments_count;
+  std::uint8_t subpasses_count;
+  std::uint8_t dependencies_count;
   attachment_description *attachments;
   subpass_description *subpasses;
   subpass_dependency *dependencies;
@@ -146,7 +146,7 @@ public:
   struct begin_info {
     const render_pass &render_pass;
     const frame_buffer &frame_buffer;
-    std::uint16_t clear_values_count;
+    std::uint8_t clear_values_count;
     const clear_value *clear_values;
   };
 
@@ -160,14 +160,14 @@ public:
 
   /// 根据当前渲染通道状态，绘制一帧
   void draw(
-      graphics_pipeline_impl *,
+      graphics_pipeline &,
       std::uint32_t vertices_count, std::uint32_t instances_count,
       std::uint32_t first_vertex, std::uint32_t first_instance
   );
 
   /// 根据当前渲染通道状态和索引缓冲区，绘制一帧
   void draw_indexed(
-      graphics_pipeline_impl *,
+      graphics_pipeline &,
       std::uint32_t indices_count, std::uint32_t instances_count,
       std::uint32_t first_index, std::int32_t vertex_offset,
       std::uint32_t first_instance
@@ -178,18 +178,18 @@ public:
 
 private:
 
-  const attachment_description *m_attachment_descriptions;
-  const subpass_description *m_first_subpass;
-  const subpass_description *m_current_subpass;
-  const subpass_description *m_last_subpass;
-  const std::byte *m_descriptor_set[1 << 8];
-  const std::byte *m_vertex_buffer[1 << 8];
-  const frame_buffer *m_frame_buffer;
+  const attachment_description *attachment_descriptions_;
+  const subpass_description *first_subpass_;
+  const subpass_description *current_subpass_;
+  const subpass_description *last_subpass_;
+  const std::byte *descriptor_set_[1 << 8];
+  const std::byte *vertex_buffer_[1 << 8];
+  const frame_buffer *frame_buffer_;
 
-  std::uint16_t m_clear_values_count;
-  const clear_value *m_clear_values;
+  std::uint8_t clear_values_count_;
+  const clear_value *clear_values_;
 
-  friend class graphics_pipeline_impl;
+  friend class graphics_pipeline_cache;
 };
 
 } // namespace plaid

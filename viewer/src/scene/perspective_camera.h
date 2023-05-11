@@ -15,9 +15,9 @@ public:
       float near, float far, float fovy, float ratio
   );
 
-  [[nodiscard]] plaid::mat4x4 view();
+  [[nodiscard]] plaid::mat4 view();
 
-  [[nodiscard]] plaid::mat4x4 projection();
+  [[nodiscard]] plaid::mat4 projection();
 
   [[nodiscard]] inline plaid::vec3 &obrit() noexcept { return m_orbit; }
   [[nodiscard]] inline const plaid::vec3 &obrit() const noexcept { return m_orbit; }

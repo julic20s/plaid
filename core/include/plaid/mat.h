@@ -1,5 +1,3 @@
-/// 所有矩阵均为行主序
-
 #pragma once
 #ifndef PLAID_MAT_H_
 #define PLAID_MAT_H_
@@ -8,49 +6,79 @@
 
 namespace plaid {
 
-struct mat3x3 {
+/// \brief N 行 M 列的矩阵
+/// \tparam Tp 元素类型
+/// \tparam N 行数
+/// \tparam M 列数
+template <class Tp, std::size_t N, std::size_t M>
+requires vec_dimen<N> && vec_dimen<M>
+struct mat {
 
-  /// 获得指定的某一行
-  /// @param i 行号
-  [[nodiscard]] constexpr vec4 &
-  operator[](std::uint8_t i) noexcept { return r[i]; }
+  using colum_type = vec<Tp, M>;
+  using value_type = colum_type::value_type;
+  using size_type = colum_type::size_type;
+  using reference = colum_type::reference;
+  using const_reference = colum_type::const_reference;
 
-  /// 获得指定的某一行
-  /// @param i 行号
-  [[nodiscard]] constexpr const vec4 &
-  operator[](std::uint8_t i) const noexcept { return r[i]; }
+  mat() = default;
 
-  /// 行向量数组
-  vec4 r[3];
+private:
+  /// \brief 为 constexpr 服务，目前的operator[]使用的是指针加偏移的方式，在 constexpr 中不支持赋值
+  static constexpr Tp &vec_member_(vec<Tp, N> &v, std::size_t r) {
+    switch (r) {
+      case 0: return v.x;
+      case 1: return v.y;
+      case 2: return v.z;
+      case 3: return v.w;
+
+      /// ASSUME UNREACHABLE
+      default: return v.w;
+    }
+  }
+
+public:
+  constexpr mat(const value_type (&list)[N * M]) noexcept {
+    for (std::size_t r = 0; r != N; ++r) {
+      for (std::size_t c = 0; c != M; ++c) {
+        vec_member_(colums[c], r) = list[r * M + c];
+      }
+    }
+  }
+
+  constexpr mat(const value_type (&list)[N][M]) noexcept {
+    for (std::size_t r = 0; r != N; ++r) {
+      for (std::size_t c = 0; c != M; ++c) {
+        vec_member_(colums[c], r) = list[r][c];
+      }
+    }
+  }
+
+  [[nodiscard]] constexpr reference
+  operator()(size_type r, size_type c) noexcept {
+    return colums[c][r];
+  }
+
+  [[nodiscard]] constexpr const_reference
+  operator()(size_type r, size_type c) const noexcept {
+    return colums[c][r];
+  }
+
+  vec<Tp, M> colums[N];
 };
 
-/// 4 * 4 的矩阵，以行主序存储
-struct mat4x4 {
-
-  /// 获得指定的某一行
-  /// @param i 行号
-  [[nodiscard]] constexpr vec4 &
-  operator[](std::uint8_t i) noexcept { return r[i]; }
-
-  /// 获得指定的某一行
-  /// @param i 行号
-  [[nodiscard]] constexpr const vec4 &
-  operator[](std::uint8_t i) const noexcept { return r[i]; }
-
-  /// 行向量数组
-  vec4 r[4];
-};
+using mat2 = mat<float, 2, 2>;
+using mat3 = mat<float, 3, 3>;
+using mat4 = mat<float, 4, 4>;
 
 /// 矩阵相加
 /// @param a 左矩阵
 /// @param b 右矩阵
-[[nodiscard]] constexpr mat4x4
-operator+(const mat4x4 &a, const mat4x4 &b) noexcept {
-  mat4x4 res;
-  for (int r = 0; r != 4; ++r) {
-    for (int c = 0; c != 4; ++c) {
-      res[r][c] = a[r][c] + b[r][c];
-    }
+template <class LTp, class RTp, std::size_t N, std::size_t M>
+[[nodiscard]] constexpr auto
+operator+(const mat<LTp, N, M> &a, const mat<RTp, N, M> &b) noexcept {
+  mat<decltype(a.colums[0] + b.colums[0]), N, M> res;
+  for (std::size_t c = 0; c != M; ++c) {
+    res[c] = a.colums[c] + b.colums[c];
   }
   return res;
 }
@@ -58,13 +86,12 @@ operator+(const mat4x4 &a, const mat4x4 &b) noexcept {
 /// 矩阵相减
 /// @param a 左矩阵
 /// @param b 右矩阵
-[[nodiscard]] constexpr mat4x4
-operator-(const mat4x4 &a, const mat4x4 &b) noexcept {
-  mat4x4 res;
-  for (int r = 0; r != 4; ++r) {
-    for (int c = 0; c != 4; ++c) {
-      res[r][c] = a[r][c] - b[r][c];
-    }
+template <class LTp, class RTp, std::size_t N, std::size_t M>
+[[nodiscard]] constexpr auto
+operator-(const mat<LTp, N, M> &a, const mat<RTp, N, M> &b) noexcept {
+  mat<decltype(a.colums[0] - b.colums[0]), N, M> res;
+  for (std::size_t c = 0; c != M; ++c) {
+    res[c] = a.colums[c] - b.colums[c];
   }
   return res;
 }
@@ -72,49 +99,48 @@ operator-(const mat4x4 &a, const mat4x4 &b) noexcept {
 /// 矩阵相乘
 /// @param a 左矩阵
 /// @param b 右矩阵
-[[nodiscard]] constexpr mat4x4
-operator*(const mat4x4 &a, const mat4x4 &b) noexcept {
-  mat4x4 res;
-  for (int r = 0; r != 4; ++r) {
-    for (int c = 0; c != 4; ++c) {
-      res[r][c] = 0;
-      for (int k = 0; k != 4; ++k) {
-        res[r][c] += a[r][k] * b[k][c];
+template <class LTp, class RTp, std::size_t N, std::size_t P, std::size_t M>
+[[nodiscard]] constexpr auto
+operator*(const mat<LTp, N, P> &a, const mat<RTp, P, M> &b) noexcept {
+  mat<decltype(a(0, 0) * b(0, 0)), N, M> res;
+  for (std::size_t c = 0; c != M; ++c) {
+    for (std::size_t r = 0; r != N; ++r) {
+      res(r, c) = 0;
+      for (std::size_t k = 0; k != P; ++k) {
+        res(r, c) += a(r, k) * b(k, c);
       }
     }
   }
   return res;
 }
 
-/// 矩阵左乘到向量
+/// 矩阵左乘到列向量
 /// @param a 左矩阵
 /// @param b 右向量
-[[nodiscard]] constexpr vec4
-operator*(const mat4x4 &a, vec4 b) noexcept {
-  return {
-      a[0][0] * b.x + a[0][1] * b.y + a[0][2] * b.z + a[0][3] * b.w,
-      a[1][0] * b.x + a[1][1] * b.y + a[1][2] * b.z + a[1][3] * b.w,
-      a[2][0] * b.x + a[2][1] * b.y + a[2][2] * b.z + a[2][3] * b.w,
-      a[3][0] * b.x + a[3][1] * b.y + a[3][2] * b.z + a[3][3] * b.w,
-  };
+template <class LTp, class RTp, std::size_t N>
+[[nodiscard]] constexpr auto
+operator*(const mat<LTp, N, N> &a, const vec<RTp, N> &b) noexcept {
+  vec<decltype(a(0, 0) * b[0]), N> res;
+  std::size_t c = 0;
+  for (auto &d : res) {
+    d = 0;
+    for (std::size_t k = 0; k != N; ++k) {
+      d += a(c, k) * b[k];
+    }
+    ++c;
+  }
+  return res;
 }
 
-[[nodiscard]] constexpr vec3
-operator*(const mat3x3 &a, vec3 b) noexcept {
-  return {
-    a[0][0] * b.x + a[0][1] * b.y + a[0][2] * b.z,
-    a[1][0] * b.x + a[1][1] * b.y + a[1][2] * b.z,
-    a[2][0] * b.x + a[2][1] * b.y + a[2][2] * b.z,
-  };
-}
-
-[[nodiscard]] constexpr mat4x4 transpose(const mat4x4 &m) {
-  return {{
-      {m[0][0], m[1][0], m[2][0], m[3][0]},
-      {m[0][1], m[1][1], m[2][1], m[3][1]},
-      {m[0][2], m[1][2], m[2][2], m[3][2]},
-      {m[0][3], m[1][3], m[2][3], m[3][3]},
-  }};
+template <class Tp, std::size_t N>
+[[nodiscard]] constexpr mat<Tp, N, N> transpose(const mat<Tp, N, N> &m) {
+  mat<Tp, N, N> res;
+  for (std::size_t r = 0; r != N; ++r) {
+    for (std::size_t c = 0; c != N; ++c) {
+      res(c, r) = m(r, c);
+    }
+  }
+  return res;
 }
 } // namespace plaid
 

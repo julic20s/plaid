@@ -11,12 +11,12 @@
 
 namespace plaid {
 
-class graphics_pipeline_impl {
+class graphics_pipeline_cache {
 public:
 
-  graphics_pipeline_impl(const graphics_pipeline::create_info &);
+  graphics_pipeline_cache(const graphics_pipeline::create_info &);
 
-  ~graphics_pipeline_impl();
+  ~graphics_pipeline_cache();
 
   /// 按照给定顶点范围执行绘制
   /// @param vertex_count 要绘制的顶点总数
@@ -128,15 +128,15 @@ private:
 
   struct {
     /// 顶点着色器逐顶点属性数量
-    std::uint16_t vertex_input_per_vertex;
+    std::uint8_t vertex_input_per_vertex;
     /// 顶点着色器逐实例属性数量
-    std::uint16_t vertex_input_per_instance;
+    std::uint8_t vertex_input_per_instance;
     /// 片元着色器属性数量
-    std::uint16_t fragment_input;
+    std::uint8_t fragment_input;
     /// 片元着色器输出数量
-    std::uint16_t fragment_output;
+    std::uint8_t fragment_output;
     /// 颜色附件数量
-    std::uint16_t color_attachments;
+    std::uint8_t color_attachments;
   } m_counts;
 
   /// 动态申请出的内存
